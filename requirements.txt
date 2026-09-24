@@ -1,0 +1,8 @@
+transformers
+accelerate
+huggingface_hub
+torch
+autoawq
+auto_gptq
+datasets
+lm-eval
