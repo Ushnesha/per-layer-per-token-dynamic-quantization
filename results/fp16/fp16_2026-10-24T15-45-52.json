@@ -1,0 +1,37 @@
+{
+  "method": "fp16",
+  "label": "fp16",
+  "bits": 16,
+  "model_path": "meta-llama/Meta-Llama-3-8B-Instruct",
+  "model_name": "meta-llama/Meta-Llama-3-8B-Instruct",
+  "timestamp": "2026-10-24T15:44:15.447617",
+  "device": "cuda:0",
+  "perplexity": {
+    "error": "CUDA out of memory. Tried to allocate 2.94 GiB. GPU 0 has a total capacity of 79.28 GiB of which 2.76 GiB is free. Process 1219997 has 31.28 GiB memory in use. Process 1300340 has 24.21 GiB memory in use. Including non-PyTorch memory, this process has 21.00 GiB memory in use. Of the allocated memory 20.17 GiB is allocated by PyTorch, and 345.21 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+  },
+  "lm_eval": {
+    "error": "2026-10-24:15:45:22 INFO     [_cli.run:392] Selected Tasks: ['hellaswag']\n2026-10-24:15:45:22 WARNING  [evaluator:184] pretrained=meta-llama/Meta-Llama-3-8B-Instruct appears to be an instruct or chat variant but chat template is not applied. Recommend setting\n        `apply_chat_template` (optionally `fewshot_as_multiturn`).\n2026-10-24:15:45:25 INFO     [evaluator:214] Setting random seed to 0 | Setting numpy seed to 1234 | Setting torch manual seed to 1234 | Setting fewshot manual seed to 1234\n"
+  },
+  "memory": {
+    "weight_memory_gb": 16.069,
+    "kv_cache_ctx_256_gb": 16.272,
+    "kv_cache_ctx_512_gb": 16.674,
+    "kv_cache_ctx_1024_gb": 17.278,
+    "kv_cache_ctx_2048_gb": 18.485,
+    "kv_cache_ctx_4096_gb": 20.899
+  },
+  "latency": {
+    "ttft_ctx514_out16_ms": 51.66,
+    "tpot_ctx514_out16_ms": 25.84,
+    "total_ctx514_out16_ms": 439.2,
+    "ttft_ctx514_out64_ms": 51.76,
+    "tpot_ctx514_out64_ms": 26.09,
+    "total_ctx514_out64_ms": 1695.99,
+    "ttft_ctx514_out128_ms": 51.9,
+    "tpot_ctx514_out128_ms": 28.99,
+    "total_ctx514_out128_ms": 3739.41,
+    "ttft_ctx514_out256_ms": 51.84,
+    "tpot_ctx514_out256_ms": 30.85,
+    "total_ctx514_out256_ms": 7929.21
+  }
+}

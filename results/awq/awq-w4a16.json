@@ -1,0 +1,86 @@
+{
+  "method": "awq",
+  "label": "AWQ-w4a16",
+  "bits": 4,
+  "model_path": "/home/udaripa/projects/per-layer-per-token-llm-serving/models/awq/llama3-8b-instruct-w4a16",
+  "model_name": "/home/udaripa/projects/per-layer-per-token-llm-serving/models/llama-3-8b-instruct",
+  "timestamp": "2026-10-26T23:33:41.688864",
+  "protocol": {
+    "seed": 0,
+    "calibration": {
+      "source": "pile",
+      "num_samples": 128,
+      "seq_len": 2048
+    },
+    "method_config": {
+      "group_size": 128,
+      "zero_point": true
+    },
+    "ppl": {
+      "dataset": "wikitext-2-raw-v1 test",
+      "seq_len": 2048,
+      "windows": "non-overlapping, BOS + seq_len-1 tokens"
+    },
+    "lm_eval": {
+      "tasks": [
+        "hellaswag"
+      ],
+      "num_fewshot": 0,
+      "batch_size": "32",
+      "backend": "vllm"
+    },
+    "latency": {
+      "batch_size": 1,
+      "input_len": 512,
+      "output_len": 128,
+      "warmup": 3,
+      "iters": 10,
+      "statistic": "median"
+    },
+    "engine": {
+      "name": "vllm",
+      "dtype": "float16",
+      "max_model_len": 4096,
+      "gpu_memory_utilization": 0.85,
+      "prefix_caching": false
+    }
+  },
+  "memory": {
+    "weight_storage_gb": 5.728,
+    "vllm_weight_memory_gib": 5.34
+  },
+  "engine": {
+    "vllm_version": "0.32.0",
+    "dtype": "torch.float16",
+    "quantization": "auto_awq",
+    "max_model_len": 4096,
+    "gpu_memory_utilization": 0.85
+  },
+  "perplexity": {
+    "wikitext": 8.5912,
+    "seq_len": 2048,
+    "num_windows": 141,
+    "num_tokens": 288627
+  },
+  "latency": {
+    "batch_size": 1,
+    "input_len": 512,
+    "output_len": 128,
+    "iters": 10,
+    "ttft_ms": 43.757,
+    "tpot_ms": 5.035,
+    "e2e_ms": 683.177,
+    "e2e_ms_stdev": 0.329
+  },
+  "lm_eval": {
+    "hellaswag": {
+      "name": "hellaswag",
+      "alias": "hellaswag",
+      "sample_len": 10042,
+      "acc,none": 0.5737900816570405,
+      "acc_stderr,none": 0.004935143791573807,
+      "acc_norm,none": 0.7561242780322645,
+      "acc_norm_stderr,none": 0.004285410130466153
+    }
+  }
+}

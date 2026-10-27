@@ -1,0 +1,37 @@
+{
+  "method": "fp16",
+  "label": "fp16",
+  "bits": 16,
+  "model_path": "meta-llama/Meta-Llama-3-8B-Instruct",
+  "model_name": "meta-llama/Meta-Llama-3-8B-Instruct",
+  "timestamp": "2026-10-24T16:01:06.529022",
+  "perplexity": {
+    "wikitext": 8.7846
+  },
+  "lm_eval": {
+    "error": "no json output"
+  },
+  "device": "cuda:0",
+  "memory": {
+    "weight_memory_gb": 16.061,
+    "kv_cache_ctx_256_gb": 16.272,
+    "kv_cache_ctx_512_gb": 16.674,
+    "kv_cache_ctx_1024_gb": 17.278,
+    "kv_cache_ctx_2048_gb": 18.485,
+    "kv_cache_ctx_4096_gb": 20.899
+  },
+  "latency": {
+    "ttft_ctx514_out16_ms": 67.22,
+    "tpot_ctx514_out16_ms": 45.79,
+    "total_ctx514_out16_ms": 778.37,
+    "ttft_ctx514_out64_ms": 79.08,
+    "tpot_ctx514_out64_ms": 49.78,
+    "total_ctx514_out64_ms": 3235.72,
+    "ttft_ctx514_out128_ms": 83.62,
+    "tpot_ctx514_out128_ms": 55.64,
+    "total_ctx514_out128_ms": 7177.67,
+    "ttft_ctx514_out256_ms": 58.43,
+    "tpot_ctx514_out256_ms": 61.54,
+    "total_ctx514_out256_ms": 15815.36
+  }
+}

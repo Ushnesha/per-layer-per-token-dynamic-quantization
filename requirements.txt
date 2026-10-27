@@ -1,8 +1,26 @@
-transformers
-accelerate
-huggingface_hub
-torch
-autoawq
-auto_gptq
-datasets
-lm-eval
+# Core ML
+torch>=2.1.0
+transformers>=5.5.0
+accelerate>=1.0.0
+huggingface_hub>=0.20.0
+datasets>=2.18.0
+safetensors>=0.4.2
+torchvision
+
+# Quantization (GPTQModel provides both GPTQ and AWQ)
+gptqmodel>=7.3.0
+optimum>=1.17.0
+compressed-tensors==0.17.0  # SmoothQuant W8A8 checkpoint format; pinned by vllm 0.32
+
+# Serving / benchmarking engine (PPL, HellaSwag, memory, TPOT for every method)
+vllm==0.32.0
+
+# Evaluation & Utilities
+lm-eval>=0.4.3
+zstandard  # pile-val calibration set is .zst compressed
+tqdm>=4.66.0
+numpy>=1.26.0
+scipy>=1.11.0
+
+# System PCRE2 10.32 Compatibility
+pypcre==0.6.0
