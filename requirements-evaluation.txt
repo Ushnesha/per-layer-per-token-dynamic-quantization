@@ -1,0 +1,22 @@
+# Evaluation of existing checkpoints; quantization tools are in requirements.txt.
+# Keep native packages on the same CUDA build, within vLLM's version requirements.
+# The default PyPI 0.32.0 wheel needs CUDA 13. Use the official CUDA 12.9
+# build to match the Torch cu129 environment installed by the Sol setup job.
+vllm @ https://github.com/vllm-project/vllm/releases/download/v0.32.0/vllm-0.32.0%2Bcu129-cp38-abi3-manylinux_2_28_x86_64.whl
+torch==2.13.0+cu129
+torchvision==0.28.0+cu129
+torchaudio==2.11.0+cu129
+# 0.17 on PyPI defaults to CUDA 13; the official 0.16 CUDA 12.9 build
+# supports Torch >=2.11 and satisfies vLLM's torchcodec>=0.14 requirement.
+torchcodec==0.16.0+cu129
+transformers>=5.5.0
+datasets>=2.18.0
+accelerate>=1.0.0
+huggingface_hub>=0.20.0
+safetensors>=0.4.2
+lm-eval>=0.4.3
+rouge==1.0.1
+nvidia-ml-py>=12.0
+psutil>=5.9
+# Match the main requirements' compatibility pin for Sol's system PCRE2.
+pypcre==0.6.0
