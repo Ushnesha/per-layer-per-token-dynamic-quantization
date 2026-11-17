@@ -82,6 +82,8 @@ class Evaluator:
                          "damp_percent": GPTQ_DAMP_PERCENT},
                 "smoothquant": {"alpha": SMOOTHQUANT_ALPHA, "weights": "int8 per-channel",
                                 "activations": "int8 dynamic per-token"},
+                "mixed": {"group_size": GROUP_SIZE, "sym": True, "desc_act": False,
+                          "damp_percent": GPTQ_DAMP_PERCENT, **self._mixed_allocation()},
             }[self.quant.method],
             "ppl": {"dataset": "wikitext-2-raw-v1 test", "seq_len": self.eval.ppl_seq_len,
                     "windows": "non-overlapping, BOS + seq_len-1 tokens"},
@@ -94,6 +96,19 @@ class Evaluator:
                        "gpu_memory_utilization": VLLM_GPU_MEMORY_UTILIZATION,
                        "prefix_caching": False},
         }
+
+    def _mixed_allocation(self) -> Dict[str, Any]:
+        """Per-unit bits of a mixed-precision checkpoint, grouped by bit-width."""
+        path = self.quant.output_dir / "allocation.json"
+        if self.quant.method != "mixed" or not path.exists():
+            return {}
+        with open(path) as f:
+            alloc = json.load(f)
+        groups: Dict[str, list] = {}
+        for unit, bits in alloc["allocation"].items():
+            groups.setdefault(str(bits), []).append(unit)
+        return {"base_bits": alloc["base_bits"],
+                "units_by_bits": {b: (u if b != str(alloc["base_bits"]) else len(u)) for b, u in groups.items()}}
 
     def run(
         self,

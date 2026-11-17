@@ -20,6 +20,10 @@ Usage:
 
     # Per-unit sensitivity profile for mixed precision
     python run.py profile
+
+    # Mixed-precision GPTQ (base W4, listed units overridden) + evaluation
+    python run.py quantize --method mixed --bits 4 --name lm8-down8 --assign lm_head=8 layers.1.down=8
+    python run.py evaluate --method mixed --bits 4 --name lm8-down8
 """
 
 import argparse
@@ -41,7 +45,7 @@ def main():
     # ── Quantize ────────────────────────────────────────────────────────
     quantize_parser = subparsers.add_parser("quantize", help="Run quantization")
     quantize_parser.add_argument("--method", type=str, nargs="+", default=["awq"],
-                                 choices=["awq", "gptq", "smoothquant"])
+                                 choices=["awq", "gptq", "smoothquant", "mixed"])
     quantize_parser.add_argument("--bits", type=int, nargs="+", default=[4], choices=[4, 8])
     quantize_parser.add_argument("--model", type=str, default=None)
     quantize_parser.add_argument("--group-size", type=int, default=128)
@@ -52,12 +56,23 @@ def main():
                                  choices=["pile", "wikitext"])
     quantize_parser.add_argument("--force", action="store_true")
     quantize_parser.add_argument("--verify", action="store_true")
+    quantize_parser.add_argument("--name", type=str, default=None,
+                                 help="Allocation name (mixed only)")
+    quantize_parser.add_argument("--assign", type=str, nargs="+", default=None,
+                                 help="Unit bit overrides for mixed, e.g. lm_head=8 layers.1.down=8")
+    quantize_parser.add_argument("--budget", type=float, default=None,
+                                 help="Weight storage budget in GB (mixed): allocation solved from the profile")
+    quantize_parser.add_argument("--signal", type=str, default="reference", choices=["reference", "cheap"],
+                                 help="Sensitivity signal the allocator uses (mixed --budget)")
+    quantize_parser.add_argument("--metric", type=str, default="kl",
+                                 help="kl | delta_nll (reference), abs | rel (cheap)")
 
     # ── Evaluate ────────────────────────────────────────────────────────
     eval_parser = subparsers.add_parser("evaluate", help="Run evaluation suite")
     eval_parser.add_argument("--method", type=str, nargs="+", default=["fp16"],
-                             choices=["fp16", "awq", "gptq", "smoothquant"])
+                             choices=["fp16", "awq", "gptq", "smoothquant", "mixed"])
     eval_parser.add_argument("--bits", type=int, nargs="+", default=[16])
+    eval_parser.add_argument("--name", type=str, default=None, help="Allocation name (mixed only)")
     eval_parser.add_argument("--model", type=str, default=None)
     eval_parser.add_argument("--skip-ppl", action="store_true")
     eval_parser.add_argument("--skip-lm-eval", action="store_true")

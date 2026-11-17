@@ -75,27 +75,33 @@ VLLM_GPU_MEMORY_UTILIZATION = 0.85
 AWQ_OUTPUT_BASE = MODELS_DIR / "awq"
 GPTQ_OUTPUT_BASE = MODELS_DIR / "gptq"
 SMOOTHQUANT_OUTPUT_BASE = MODELS_DIR / "smoothquant"
+MIXED_OUTPUT_BASE = MODELS_DIR / "mixed"
 
 # ── Dataclasses ────────────────────────────────────────────────────────────
 @dataclass
 class QuantConfig:
     """Configuration for a single quantization run."""
-    method: str  # "fp16" | "awq" | "gptq" | "smoothquant"
-    bits: int = 16  # 16 for FP16, 8 for INT8, 4 for INT4
+    method: str  # "fp16" | "awq" | "gptq" | "smoothquant" | "mixed"
+    bits: int = 16  # 16 for FP16, 8 for INT8, 4 for INT4 (base bits for mixed)
     group_size: int = GROUP_SIZE
     zero_point: bool = True
     version: str = "gemm"  # AWQ format: "gemm" | "gemv"
     sym: bool = True  # Symmetric quantization (GPTQ)
+    name: Optional[str] = None  # allocation name (mixed only)
 
     @property
     def label(self) -> str:
         if self.method == "fp16":
             return "fp16"
+        if self.method == "mixed":
+            return f"MIXED-{self.name}"
         suffix = "a16" if self.method in ("awq", "gptq") else "a8"
         return f"{self.method.upper()}-w{self.bits}{suffix}"
 
     @property
     def output_dir(self) -> Path:
+        if self.method == "mixed":
+            return MIXED_OUTPUT_BASE / f"llama3-8b-instruct-{self.name}"
         base = {
             "awq": AWQ_OUTPUT_BASE,
             "gptq": GPTQ_OUTPUT_BASE,

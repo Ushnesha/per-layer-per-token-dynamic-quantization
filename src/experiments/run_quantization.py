@@ -49,6 +49,24 @@ def run(args):
             logger.info(f"Quantizing: {method.upper()} W{bits}A{act_bits}")
             logger.info(f"{'='*60}")
 
+            # Mixed precision: base bits plus per-unit overrides
+            extra = {}
+            if method == "mixed" and getattr(args, "budget", None):
+                # Sensitivity-guided: solve the allocation for a weight-storage budget
+                from src.adaptive.allocator import Allocator, overrides
+                allocator = Allocator(signal=args.signal, metric=args.metric)
+                allocation = allocator.solve(args.budget)
+                args.name = args.name or f"{args.signal[:3]}-{args.metric}-{args.budget:.2f}"
+                extra = {"name": args.name, "assignments": overrides(allocation, base_bits=bits),
+                         "meta": {"budget_gb": args.budget, "signal": args.signal, "metric": args.metric,
+                                  "predicted_gb": round(allocator.size_gb(allocation), 4),
+                                  "predicted_cost": allocator.predicted_cost(allocation)}}
+            elif method == "mixed":
+                from src.adaptive.allocation import parse_assignments
+                if not getattr(args, "name", None):
+                    raise ValueError("--name (with --assign) or --budget is required for --method mixed")
+                extra = {"name": args.name, "assignments": parse_assignments(args.assign)}
+
             # Create quantizer
             quantizer = QuantizerFactory.create(
                 method=method,
@@ -57,6 +75,7 @@ def run(args):
                 group_size=args.group_size,
                 zero_point=not args.no_zero_point,
                 calib_samples=args.calib_samples,
+                **extra,
             )
 
             # Check if already quantized

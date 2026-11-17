@@ -38,7 +38,7 @@ def run(args):
     for i, method in enumerate(methods):
         bits = bits_list[i] if i < len(bits_list) else 16
 
-        quant_config = QuantConfig(method=method, bits=bits)
+        quant_config = QuantConfig(method=method, bits=bits, name=getattr(args, "name", None))
         eval_config = EvalConfig()
 
         # Determine model path
