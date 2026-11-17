@@ -1,8 +1,8 @@
 import torch
 from scipy.stats import kendalltau, spearmanr
 
-from analysis_utils import sensitivity_scores, per_chunk_correlation, per_chunk_top_k_overlap, print_summary
-from plots import plot_tau_by_layer
+from .analysis_utils import sensitivity_scores, per_chunk_correlation, per_chunk_top_k_overlap, print_summary
+from .plots import plot_tau_by_layer
 
 ORACLE_PATH = "results/oracle_kl_smollm360m_int4_gfull_20x512.pt"
 SIGNALS_PATH = "results/signals_smollm360m_20x512.pt"

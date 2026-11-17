@@ -2,9 +2,9 @@ import torch
 from scipy.stats import kendalltau, spearmanr
 from transformers import AutoTokenizer
 
-from data import load_wikitext
-from plots import plot_sensitivity, plot_sensitivity_by_window
-from analysis_utils import sensitivity_scores, shared_positions, per_chunk_correlation, per_chunk_top_k_overlap, compare_windows, print_summary, inspect_token
+from .data import load_wikitext
+from .plots import plot_sensitivity, plot_sensitivity_by_window
+from .analysis_utils import sensitivity_scores, shared_positions, per_chunk_correlation, per_chunk_top_k_overlap, compare_windows, print_summary, inspect_token
 
 ORACLE_PATH = "results/oracle_kl_smollm360m_int4_gfull_20x512.pt"
 MODEL_NAME = "HuggingFaceTB/SmolLM-360M"

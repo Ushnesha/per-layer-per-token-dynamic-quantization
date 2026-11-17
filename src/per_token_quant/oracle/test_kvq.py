@@ -3,9 +3,9 @@ import math
 import torch
 from transformers import AutoModelForCausalLM, DynamicCache, LlamaConfig
 
-from metrics import perplexity
-from quant import FULL_PRECISION, FakeQuantKVCache, fake_quantize, fake_quantize_tokens, get_layer_kv
-from signals import compute_signals
+from .metrics import perplexity
+from .quant import FULL_PRECISION, FakeQuantKVCache, fake_quantize, fake_quantize_tokens, get_layer_kv
+from .signals import compute_signals
 
 SEQ_LEN = 24
 

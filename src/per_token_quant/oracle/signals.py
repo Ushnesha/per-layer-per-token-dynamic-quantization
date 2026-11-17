@@ -1,7 +1,7 @@
 import torch
 from transformers import PreTrainedModel
 
-from quant import get_layer_kv
+from .quant import get_layer_kv
 
 
 @torch.no_grad()

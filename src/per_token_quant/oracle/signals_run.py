@@ -2,9 +2,9 @@ import torch
 from collections import defaultdict
 import os
 
-from models import get_model_and_tokenizer
-from signals import compute_signals
-from data import load_wikitext
+from .models import get_model_and_tokenizer
+from .signals import compute_signals
+from .data import load_wikitext
 
 MODEL_NAME = "HuggingFaceTB/SmolLM-360M"
 CHUNK_SIZE = 512

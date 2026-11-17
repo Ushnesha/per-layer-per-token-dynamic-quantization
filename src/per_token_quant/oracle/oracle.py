@@ -3,9 +3,9 @@ import os
 import torch
 import torch.nn.functional as F
 
-from data import load_wikitext
-from models import get_model_and_tokenizer
-from quant import FULL_PRECISION, FakeQuantKVCache
+from .data import load_wikitext
+from .models import get_model_and_tokenizer
+from .quant import FULL_PRECISION, FakeQuantKVCache
 
 MODEL_NAME = "HuggingFaceTB/SmolLM-360M"
 DTYPE = torch.float32
