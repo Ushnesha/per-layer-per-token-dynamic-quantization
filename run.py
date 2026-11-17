@@ -17,6 +17,9 @@ Usage:
 
     # Full pipeline: quantize + evaluate
     python run.py pipeline --method awq --bits 4
+
+    # Per-unit sensitivity profile for mixed precision
+    python run.py profile
 """
 
 import argparse
@@ -68,6 +71,19 @@ def main():
     compare_parser.add_argument("--export-md", type=str, default=None)
     compare_parser.add_argument("--export-json", type=str, default=None)
 
+    # ── Profile (per-unit sensitivity for mixed precision) ──────────────
+    profile_parser = subparsers.add_parser("profile", help="Per-unit sensitivity profiling")
+    profile_parser.add_argument("--model", type=str, default=None)
+    profile_parser.add_argument("--bits", type=int, nargs="+", default=[4, 8], choices=[4, 8])
+    profile_parser.add_argument("--calib-samples", type=int, default=32)
+    profile_parser.add_argument("--ref-samples", type=int, default=8)
+    profile_parser.add_argument("--calib-seq-len", type=int, default=2048)
+    profile_parser.add_argument("--calib-source", type=str, default="pile",
+                                choices=["pile", "wikitext"])
+    profile_parser.add_argument("--skip-reference", action="store_true")
+    profile_parser.add_argument("--no-lm-head", action="store_true")
+    profile_parser.add_argument("--out", type=str, default=None)
+
     # ── Pipeline (quantize + evaluate) ──────────────────────────────────
     pipeline_parser = subparsers.add_parser("pipeline", help="Quantize then evaluate")
     pipeline_parser.add_argument("--method", type=str, nargs="+", default=["awq"],
@@ -97,6 +113,10 @@ def main():
 
     elif args.command == "compare":
         from src.experiments.compare_results import run
+        run(args)
+
+    elif args.command == "profile":
+        from src.adaptive.sensitivity import run
         run(args)
 
     elif args.command == "pipeline":

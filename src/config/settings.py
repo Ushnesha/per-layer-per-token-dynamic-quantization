@@ -55,6 +55,11 @@ SMOOTHQUANT_ALPHA = 0.8
 # Perplexity: WikiText-2 test, non-overlapping windows over the full split.
 PPL_SEQ_LEN = 2048
 
+# ── Sensitivity profiling (per-layer mixed precision) ──────────────────────
+SENSITIVITY_DIR = RESULTS_DIR / "sensitivity"
+SENSITIVITY_CALIB_SAMPLES = 32  # blocks for the cheap one-pass signal
+SENSITIVITY_REF_SAMPLES = 8     # blocks for the per-unit end-to-end KL reference
+
 # ── Evaluation configuration ───────────────────────────────────────────────
 EVAL_TASKS = ["hellaswag"]
 LM_EVAL_NUM_FEWSHOT = 0
