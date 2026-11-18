@@ -284,7 +284,7 @@ def generate(
     cache = make_cache()
     _sync(model)
     start = time.perf_counter()
-    logits = model(input_ids=input_ids, past_key_values=cache, use_cache=True).logits[:, -1]
+    logits = model(input_ids=input_ids, past_key_values=cache, use_cache=True, logits_to_keep=1).logits[:, -1]
     _sync(model)
     prefill_seconds = time.perf_counter() - start
 
