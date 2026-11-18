@@ -10,23 +10,6 @@ from evaluation.benchmark.retrieval import CONTEXT_LENGTHS, TARGET_POSITIONS, SE
 from evaluation.benchmark.instruction_prompt import stop_token_ids
 from prototype.adaptive_kv import AdaptiveKVCache, KeyNormLinearScorer, PositionScorer, RandomScorer, generate
 
-def run_passkey(model, make_cache):
-    """Passkey accuracy (%) for each (length, position) cell, and overall."""
-    outcomes = {}
-    for example in tqdm(examples, desc="passkey"):
-        out = generate(model, tokenizer, example["prompt_token_ids"], make_cache, max_new_tokens=32,
-                       stop_token_ids=stop_token_ids(tokenizer), stop_text="\n")
-        cell = (example["context_length"], example["target_position"])
-        outcomes.setdefault(cell, []).append(exact_match(out["text"], example["expected"]))
-    per_cell = {cell: 100 * sum(hits) / len(hits) for cell, hits in sorted(outcomes.items())}
-    overall = 100 * sum(sum(hits) for hits in outcomes.values()) / len(examples)
-    return per_cell, overall
-
-
-def print_accuracy(name, per_cell, overall):
-    cells = " | ".join(f"{length} @ {position:.0%}: {acc:.0f}%" for (length, position), acc in per_cell.items())
-    print(f"{name:25s} overall {overall:5.1f}% | {cells}")
-
 MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 CKPT = "l2_norm_mlp/results/key_norm_linear_llama3_8b_instruct_nopos.pt"
 LOW_BITS = 2
@@ -56,6 +39,23 @@ for length in LENGTHS:
             examples.append(example)
 
 print(f"{len(examples)} examples")
+
+def run_passkey(model, make_cache):
+    """Passkey accuracy (%) for each (length, position) cell, and overall."""
+    outcomes = {}
+    for example in tqdm(examples, desc="passkey"):
+        out = generate(model, tokenizer, example["prompt_token_ids"], make_cache, max_new_tokens=32,
+                       stop_token_ids=stop_token_ids(tokenizer), stop_text="\n")
+        cell = (example["context_length"], example["target_position"])
+        outcomes.setdefault(cell, []).append(exact_match(out["text"], example["expected"]))
+    per_cell = {cell: 100 * sum(hits) / len(hits) for cell, hits in sorted(outcomes.items())}
+    overall = 100 * sum(sum(hits) for hits in outcomes.values()) / len(examples)
+    return per_cell, overall
+
+
+def print_accuracy(name, per_cell, overall):
+    cells = " | ".join(f"{length} @ {position:.0%}: {acc:.0f}%" for (length, position), acc in per_cell.items())
+    print(f"{name:25s} overall {overall:5.1f}% | {cells}")
 
 model = AutoModelForCausalLM.from_pretrained(MODEL, dtype=torch.bfloat16).to("cuda").eval()
 
