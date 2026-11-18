@@ -93,4 +93,25 @@ Weighting the layers fixes the sign flip. On Llama, position adds nothing. A sma
 | Position | 18.263 | 18.085 |
 | Random | 18.380 | 18.286 |
 
-The learned policies recover about twice as much of the INT2 gap as random. Key norm ties attention without needing attention scores. Position ties both on short-context perplexity, which is why the next test is passkey retrieval on long prompts.
+**Prototype v0, Llama-3-8B-Instruct** (BF16, A100 20 GB slice, INT2 group 32, 128-token window, 4 sinks, one ~2,070-token prompt)
+
+| | Full-precision tokens | Average bits per KV value | KV compression vs. FP16 | Decode |
+| --- | --- | --- | --- | --- |
+| Full precision | all 2,168 | 16.0 | 1.00× | 47 ms/token |
+| Key-norm policy, 10% kept | 333 | 5.0 | 3.20× | 66 ms/token |
+| Uniform INT2 | 132 (sinks + window) | 3.8 | 4.22× | 61 ms/token |
+
+Compression is what a real low-bit cache would use, counting the scales and zero points. v0 still stores everything at full precision, so GPU memory doesn't drop yet (that's v1). Decoding is slower because fake quantization adds work at every step.
+
+**Passkey retrieval through v0, Llama-3-8B-Instruct** (Aditya's synthetic passkey examples: 2,048- and 7,168-token prompts, passkey at 10/50/90% depth, 10 examples per cell, 60 in total; scored by whether the answer contains the passkey)
+
+Calibration with uniform quantization (only the sinks and the window kept): full precision 100%, INT2 group 32 100% (too mild to matter), INT2 group 128 80%, INT1 group 32 0%. The policies are compared at INT2 group 128:
+
+| Policy, 10% kept | Passkey found | Passkey sentence kept in full precision |
+| --- | --- | --- |
+| Key-norm linear model | 100% | 97% |
+| Random | 85% | 11% |
+| Position | 80% | 0% |
+| Uniform INT2 (nothing kept) | 80% | — |
+
+The key-norm policy finds the passkey sentence on its own, without attention scores, and keeps retrieval at full-precision accuracy. Caveat: the filler is four sentences repeated, so the passkey sentence stands out more than a fact would in real text. Real documents (LongBench) are the next test. Also, many correct answers start with "The secret passkey is:", so the exact-match scorer in `retrieval.py` marks them wrong (78% exact match at full precision, vs. 100% found).

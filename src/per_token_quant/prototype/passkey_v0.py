@@ -13,7 +13,7 @@ from prototype.adaptive_kv import AdaptiveKVCache, KeyNormLinearScorer, Position
 MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 CKPT = "l2_norm_mlp/results/key_norm_linear_llama3_8b_instruct_nopos.pt"
 LOW_BITS = 2
-GROUP_SIZE = 32
+GROUP_SIZE = None
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL)
 LENGTHS = (2048, 7168)
@@ -33,15 +33,23 @@ print(f"{len(examples)} examples")
 
 def run_passkey(model, make_cache):
     """Passkey accuracy (%) for each (length, position) cell, and overall."""
-    outcomes = {}
+    outcomes, responses, kept = {}, [], []
     for example in tqdm(examples, desc="passkey"):
         out = generate(model, tokenizer, example["prompt_token_ids"], make_cache, max_new_tokens=32,
                        stop_token_ids=stop_token_ids(tokenizer), stop_text="\n")
+        fact = f"\nThe secret passkey is {example['expected']}. Remember this exact passkey.\n"
+        fact_len = len(tokenizer(fact, add_special_tokens=False)["input_ids"])
+        start = example["target_token_index"]
+        kept.append((out["cache"].bits[start:start + fact_len] == 16).float().mean().item())
+        correct = example["expected"] in out["text"]  # found the passkey, whatever the wording
         cell = (example["context_length"], example["target_position"])
-        outcomes.setdefault(cell, []).append(exact_match(out["text"], example["expected"]))
+        outcomes.setdefault(cell, []).append(correct)
+        responses.append(out["text"])
+        if not correct:
+            print(f"  {cell}: expected {example['expected']}, got {out['text']!r}")
     per_cell = {cell: 100 * sum(hits) / len(hits) for cell, hits in sorted(outcomes.items())}
     overall = 100 * sum(sum(hits) for hits in outcomes.values()) / len(examples)
-    return per_cell, overall
+    return per_cell, overall, sum(kept) / len(kept)
 
 
 def print_accuracy(name, per_cell, overall):
@@ -51,8 +59,16 @@ def print_accuracy(name, per_cell, overall):
 model = AutoModelForCausalLM.from_pretrained(MODEL, dtype=torch.bfloat16).to("cuda").eval()
 
 # Calibration: full precision vs. uniform INT2. The scorer doesn't matter at budget 1.0 or 0.0.
-for name, budget in (("full precision", 1.0), ("uniform INT2", 0.0)):
-    make_cache = lambda: AdaptiveKVCache(PositionScorer(), budget=budget, low_bits=LOW_BITS,
+policies = {
+    "key norm (linear)": lambda: KeyNormLinearScorer(CKPT),
+    "position": lambda: PositionScorer(),
+    "random": lambda: RandomScorer(0),
+}
+budget = 0.1
+for name, make_scorer in policies.items():
+    scorer = make_scorer()
+    make_cache = lambda: AdaptiveKVCache(scorer, budget=budget, low_bits=LOW_BITS,
                                          group_size=GROUP_SIZE, config=model.config)
-    per_cell, overall = run_passkey(model, make_cache)
-    print_accuracy(name, per_cell, overall)
+    per_cell, overall, kept_fraction = run_passkey(model, make_cache)
+    print_accuracy(f"{name} @ {budget:.0%}", per_cell, overall)
+    print(f"    passkey sentence kept in full precision: {kept_fraction:.0%}")
