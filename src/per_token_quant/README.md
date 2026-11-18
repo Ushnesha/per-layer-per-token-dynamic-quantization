@@ -115,3 +115,15 @@ Calibration with uniform quantization (only the sinks and the window kept): full
 | Uniform INT2 (nothing kept) | 80% | — |
 
 The key-norm policy finds the passkey sentence on its own, without attention scores, and keeps retrieval at full-precision accuracy. Caveat: the filler is four sentences repeated, so the passkey sentence stands out more than a fact would in real text. Real documents (LongBench) are the next test. Also, many correct answers start with "The secret passkey is:", so the exact-match scorer in `retrieval.py` marks them wrong (78% exact match at full precision, vs. 100% found).
+
+**LongBench HotpotQA through v0, Llama-3-8B-Instruct** (first 50 examples, 7,168-token prompts trimmed as in `long_context.py`, INT2 group 128, 10% kept, F1)
+
+| Setting | F1 |
+| --- | --- |
+| Full precision | 40.8 |
+| Uniform INT2 | 33.1 |
+| Position, 10% | 35.7 |
+| Key-norm linear model, 10% | 34.1 |
+| Random, 10% | 34.0 |
+
+On real multi-document QA, quantization costs 7.7 F1, and no policy recovers much of it at a 10% budget. With 50 examples, the 1–2 F1 differences between policies are within noise. Key norm does no better than random here. It flags tokens that look unusual, which works for the passkey (one odd sentence in repeated filler) but not when which passage matters depends on the question. Key norm never sees the question. A query-aware signal, such as attention from the question tokens, is the natural next step, at the cost of needing attention scores.
