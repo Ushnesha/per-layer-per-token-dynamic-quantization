@@ -141,7 +141,10 @@ class AdaptiveKVCache(DynamicCache):
         self.group_size = group_size
         self.window = window
         self.num_sinks = num_sinks
-        self.num_model_layers = kwargs["config"].num_hidden_layers
+        config = kwargs["config"]
+        self.num_model_layers = config.num_hidden_layers
+        self.kv_heads = getattr(config, "num_key_value_heads", None) or config.num_attention_heads
+        self.head_dim = getattr(config, "head_dim", None) or config.hidden_size // config.num_attention_heads
 
         self.key_norms: list[list[torch.Tensor]] = [[] for _ in range(self.num_model_layers)]
         self.num_tokens = 0  # tokens stored so far
@@ -160,16 +163,30 @@ class AdaptiveKVCache(DynamicCache):
             self._decide_and_quantize(end=min(self.num_tokens + num_new - self.window, self.num_tokens))
             self.num_tokens += num_new
 
-        keys, values = super().update(key_states, value_states, layer_idx, *args, **kwargs)
+        keys, values = self._store(key_states, value_states, layer_idx, *args, **kwargs)
         # Head-averaged key L2 norm of the new tokens, the same feature the linear model was trained on
         self.key_norms[layer_idx].append(key_states.float().norm(dim=-1).mean(dim=1)[0])
         return keys, values
+
+    def _store(self, key_states, value_states, layer_idx, *args, **kwargs):
+        """Appends the new tokens and returns the layer's full keys and values for attention.
+
+        v0 keeps everything in DynamicCache's normal storage. v1 (`real_kv.py`) replaces this.
+        """
+        return DynamicCache.update(self, key_states, value_states, layer_idx, *args, **kwargs)
 
     def _decide_and_quantize(self, end: int) -> None:
         start = self.num_decided
         if end <= start:
             return
+        bits, scores = self._decide(start, end)
+        self._quantize(start, end, bits)
+        self.bits = torch.cat((self.bits, bits))
+        self.scores = torch.cat((self.scores, scores))
+        self.num_decided = end
 
+    def _decide(self, start: int, end: int) -> tuple[torch.Tensor, torch.Tensor]:
+        """Scores tokens start .. end - 1 and picks each one's bit-width. Returns (bits, scores)."""
         positions = torch.arange(start, end)
         for layer in range(self.num_model_layers):
             self.key_norms[layer] = [torch.cat(self.key_norms[layer])]  # keep one tensor per layer
@@ -183,17 +200,20 @@ class AdaptiveKVCache(DynamicCache):
         bits = torch.full(scores.shape, self.low_bits, dtype=torch.long)
         bits[scores >= threshold] = FULL_PRECISION
         bits[~competing] = FULL_PRECISION
+        return bits, scores
 
-        if (bits < FULL_PRECISION).any():
-            for layer in range(self.num_model_layers):
-                keys, values = get_layer_kv(self, layer)
-                token_bits = bits[None].to(keys.device)  # [1, num_decided_now]
-                keys[:, :, start:end] = fake_quantize_tokens(keys[:, :, start:end], token_bits, self.group_size)
-                values[:, :, start:end] = fake_quantize_tokens(values[:, :, start:end], token_bits, self.group_size)
+    def _quantize(self, start: int, end: int, bits: torch.Tensor) -> None:
+        """Applies the bit-widths to tokens start .. end - 1 in every layer.
 
-        self.bits = torch.cat((self.bits, bits))
-        self.scores = torch.cat((self.scores, scores))
-        self.num_decided = end
+        v0 fake-quantizes in place. v1 (`real_kv.py`) replaces this with real low-bit storage.
+        """
+        if not (bits < FULL_PRECISION).any():
+            return
+        for layer in range(self.num_model_layers):
+            keys, values = get_layer_kv(self, layer)
+            token_bits = bits[None].to(keys.device)  # [1, num_decided_now]
+            keys[:, :, start:end] = fake_quantize_tokens(keys[:, :, start:end], token_bits, self.group_size)
+            values[:, :, start:end] = fake_quantize_tokens(values[:, :, start:end], token_bits, self.group_size)
 
     def _threshold_for(self, scores: torch.Tensor) -> float:
         """The score that keeps the top `budget` fraction of `scores`."""
@@ -212,10 +232,9 @@ class AdaptiveKVCache(DynamicCache):
         plus a 16-bit scale and a 16-bit zero point per quantization group. Tokens still in
         the window count as full precision.
         """
-        keys, _ = get_layer_kv(self, 0)
-        _, kv_heads, num_tokens, head_dim = keys.shape
-        values_per_token = 2 * self.num_model_layers * kv_heads * head_dim  # keys + values, all layers
-        group = head_dim if self.group_size is None else self.group_size
+        num_tokens = self.num_tokens
+        values_per_token = 2 * self.num_model_layers * self.kv_heads * self.head_dim  # keys + values, all layers
+        group = self.head_dim if self.group_size is None else self.group_size
         groups_per_token = values_per_token // group
 
         num_low = int((self.bits < FULL_PRECISION).sum())
@@ -284,6 +303,7 @@ def generate(
     cache = make_cache()
     _sync(model)
     start = time.perf_counter()
+    # logits_to_keep=1: only the last position's logits, so a 7K prompt doesn't need ~2 GB for them
     logits = model(input_ids=input_ids, past_key_values=cache, use_cache=True, logits_to_keep=1).logits[:, -1]
     _sync(model)
     prefill_seconds = time.perf_counter() - start

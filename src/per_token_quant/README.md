@@ -57,6 +57,10 @@ Setup: Python 3.10+, `torch`, `transformers` (5.x), `datasets`, `scipy`, `numpy`
 | `try_v0.py` | Smoke test on Llama-3-8B-Instruct with a long prompt |
 | `passkey_v0.py` | Passkey retrieval through v0, using the same examples and scoring as `src/evaluation/benchmark/retrieval.py` |
 | `test_adaptive_kv.py` | Sanity tests |
+| `packing.py` | Real low-bit storage: values to 2-bit codes packed four per byte, with an FP16 scale and zero point per group, and back |
+| `real_kv.py` | Prototype v1: `RealQuantKVCache`, the same decisions as v0, with low-bit tokens really stored packed and each layer rebuilt only while its attention runs |
+| `test_packing.py`, `test_real_kv.py` | Sanity tests for v1 |
+| `try_v1.py` | v1 smoke test: the same prompt as `try_v0`, printing stored, predicted and measured KV memory |
 
 Results (`.pt` files, plots) are saved in each folder's `results/`.
 
@@ -127,3 +131,13 @@ The key-norm policy finds the passkey sentence on its own, without attention sco
 | Random, 10% | 34.0 |
 
 On real multi-document QA, quantization costs 7.7 F1, and no policy recovers much of it at a 10% budget. With 50 examples, the 1–2 F1 differences between policies are within noise. Key norm does no better than random here. It flags tokens that look unusual, which works for the passkey (one odd sentence in repeated filler) but not when which passage matters depends on the question. Key norm never sees the question. A query-aware signal, such as attention from the question tokens, is the natural next step, at the cost of needing attention scores.
+
+**Prototype v1, real low-bit storage, Llama-3-8B-Instruct** (the same prompt and settings as the v0 smoke test)
+
+| Setting | KV cache stored | v0's prediction | Measured on GPU | Decode |
+| --- | --- | --- | --- | --- |
+| Full precision | 271.0 MiB | 271.0 MiB | 280.1 MiB | 43.9 ms/token |
+| Key-norm policy, 10% | 84.6 MiB (3.2× smaller) | 84.6 MiB | 85.0 MiB | 87.9 ms/token |
+| Uniform INT2 | 64.2 MiB (4.2× smaller) | 64.2 MiB | 64.5 MiB | 87.4 ms/token |
+
+The stored size matches v0's prediction exactly, and the GPU's own memory counter agrees within half a MiB, so the savings are real. Decoding is about 2× slower because every layer is unpacked and rebuilt at every step. A kernel that reads the packed codes directly (v2) would remove that. The answers match v0's closely: v1 stores scales in FP16, v0 in FP32.
