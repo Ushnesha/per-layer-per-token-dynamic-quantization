@@ -5,17 +5,19 @@ Input -> token salience -> quantized KV cache -> output, in one generation loop:
     1. The prompt is processed in full precision (prefill). While each layer writes its
        keys into the cache, the cache records every token's key L2 norm for that layer,
        so salience costs no extra forward pass and no attention scores.
-    2. When a token leaves the recent window, the scorer turns its per-layer key norms
-       into an importance score. Tokens scoring at least the threshold stay in full
-       precision; the rest are quantized to `low_bits`. The attention sinks always stay in
-       full precision.
+    2. When tokens leave the recent window, the scorer turns their per-layer key norms
+       into importance scores. The highest-scoring ones stay in full precision; the rest
+       are quantized to `low_bits`. The attention sinks always stay in full precision.
     3. Generation continues from the mixed-precision cache. New tokens are scored and
        quantized the same way when they leave the window.
 
-The threshold is set the first time non-sink tokens leave the window: it is the score that
-keeps the top `budget` fraction of those tokens. Normally that is the whole prompt, at the
-first decoding step. Later tokens are compared against the same threshold, so the budget
-holds approximately. A prompt shorter than the window gives a noisy threshold.
+The budget is kept with a running count: after every decision, the number of tokens kept in
+full precision is round(budget x tokens decided so far), sinks excluded. Each batch of tokens
+leaving the window gets the part of the budget that has built up, and spends it on its
+highest-scoring tokens. So the kept fraction always matches `budget`, whatever range the
+scores fall in. A long prompt leaves the window all at once and gets its top `budget`
+fraction. During decoding, tokens leave one at a time, so the budget is spent as it builds
+up (about every 1 / budget tokens), without a choice between tokens.
 
 The first generated token comes from the full-precision prefill, as in KIVI-style systems.
 Quantization applies from the second generated token on.
@@ -36,7 +38,6 @@ Example:
 
 from __future__ import annotations
 
-import math
 import time
 from typing import Callable
 
@@ -104,7 +105,7 @@ class AdaptiveKVCache(DynamicCache):
 
     Decisions happen at the start of each forward pass (in layer 0's update), before any
     attention runs: every token that will be outside the window once this pass's tokens are
-    added is scored, and quantized in every layer if it falls below the threshold. During
+    added is scored, and quantized in every layer unless it makes the running budget. During
     prefill nothing is old enough yet, so the prompt is processed in full precision.
 
     Args:
@@ -149,7 +150,8 @@ class AdaptiveKVCache(DynamicCache):
         self.key_norms: list[list[torch.Tensor]] = [[] for _ in range(self.num_model_layers)]
         self.num_tokens = 0  # tokens stored so far
         self.num_decided = 0  # tokens whose precision has been decided
-        self.threshold: float | None = None
+        self.num_competing = 0  # decided tokens that competed for the budget (sinks excluded)
+        self.num_kept = 0  # of those, how many were kept in full precision
         self.bits = torch.empty(0, dtype=torch.long)
         self.scores = torch.empty(0)
 
@@ -193,13 +195,18 @@ class AdaptiveKVCache(DynamicCache):
         norms = torch.stack([self.key_norms[layer][0][start:end] for layer in range(self.num_model_layers)], dim=-1)
         scores = self.scorer(norms.cpu(), positions).float().cpu()
 
-        competing = positions >= self.num_sinks
-        if self.threshold is None and competing.any():
-            self.threshold = self._threshold_for(scores[competing])
-        threshold = self.threshold if self.threshold is not None else math.inf
         bits = torch.full(scores.shape, self.low_bits, dtype=torch.long)
-        bits[scores >= threshold] = FULL_PRECISION
-        bits[~competing] = FULL_PRECISION
+        bits[positions < self.num_sinks] = FULL_PRECISION
+        competing = (positions >= self.num_sinks).nonzero().squeeze(-1)
+        if competing.numel() > 0:
+            # Running budget: keep round(budget x competing tokens so far) in total
+            self.num_competing += competing.numel()
+            target = int(round(self.budget * self.num_competing))
+            k = max(0, min(target - self.num_kept, competing.numel()))
+            if k > 0:
+                top = scores[competing].topk(k).indices  # this batch's highest scores
+                bits[competing[top]] = FULL_PRECISION
+            self.num_kept += k
         return bits, scores
 
     def _quantize(self, start: int, end: int, bits: torch.Tensor) -> None:
@@ -214,15 +221,6 @@ class AdaptiveKVCache(DynamicCache):
             token_bits = bits[None].to(keys.device)  # [1, num_decided_now]
             keys[:, :, start:end] = fake_quantize_tokens(keys[:, :, start:end], token_bits, self.group_size)
             values[:, :, start:end] = fake_quantize_tokens(values[:, :, start:end], token_bits, self.group_size)
-
-    def _threshold_for(self, scores: torch.Tensor) -> float:
-        """The score that keeps the top `budget` fraction of `scores`."""
-        if self.budget >= 1.0:
-            return -math.inf
-        k = int(round(self.budget * scores.numel()))
-        if k == 0:
-            return math.inf
-        return scores.topk(k).values[-1].item()
 
     def memory_report(self) -> dict:
         """KV memory a real implementation of this cache would use, vs. a plain FP16 cache.

@@ -141,3 +141,14 @@ On real multi-document QA, quantization costs 7.7 F1, and no policy recovers muc
 | Uniform INT2 | 64.2 MiB (4.2× smaller) | 64.2 MiB | 64.5 MiB | 87.4 ms/token |
 
 The stored size matches v0's prediction exactly, and the GPU's own memory counter agrees within half a MiB, so the savings are real. Decoding is about 2× slower because every layer is unpacked and rebuilt at every step. A kernel that reads the packed codes directly (v2) would remove that. The answers match v0's closely: v1 stores scales in FP16, v0 in FP32.
+
+**WikiText-2 perplexity, Llama-3-8B-Instruct, prototype v1** (20 chunks of 2,048 tokens after the first 5, streamed 64 tokens at a time, INT2 group 128, 128-token window, 4 sinks)
+
+| Setting | Perplexity | Kept in full precision |
+| --- | --- | --- |
+| Full precision | 8.47 | 100% |
+| Static INT2 | 22.19 | 0% |
+| Key-norm policy | 19.41 | 10% |
+| Random | 19.06 | 10% |
+
+Static INT2 with group 128 more than doubles perplexity. Keeping 10% of tokens in full precision recovers about a fifth of that, and key norm does no better than random here. One limit of this test: when streaming, the budget is handed out as tokens leave the window, so every stretch of 64 tokens keeps about 10%, and a policy can only choose within each stretch, not save its budget for the parts that matter most.
