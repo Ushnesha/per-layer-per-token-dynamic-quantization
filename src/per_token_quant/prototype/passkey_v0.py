@@ -15,15 +15,6 @@ CKPT = "l2_norm_mlp/results/key_norm_linear_llama3_8b_instruct_nopos.pt"
 LOW_BITS = 2
 GROUP_SIZE = 32
 
-model = AutoModelForCausalLM.from_pretrained(MODEL, dtype=torch.bfloat16).to("cuda").eval()
-
-# Calibration: full precision vs. uniform INT2. The scorer doesn't matter at budget 1.0 or 0.0.
-for name, budget in (("full precision", 1.0), ("uniform INT2", 0.0)):
-    make_cache = lambda: AdaptiveKVCache(PositionScorer(), budget=budget, low_bits=LOW_BITS,
-                                         group_size=GROUP_SIZE, config=model.config)
-    per_cell, overall = run_passkey(model, make_cache)
-    print_accuracy(name, per_cell, overall)
-
 tokenizer = AutoTokenizer.from_pretrained(MODEL)
 LENGTHS = (2048, 7168)
 EXAMPLES_PER_CELL = 10
