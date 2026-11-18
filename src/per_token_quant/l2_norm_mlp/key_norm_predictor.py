@@ -8,9 +8,10 @@ from oracle.analysis_utils import sensitivity_scores, per_chunk_correlation, per
 
 
 # Getting the data
-ORACLE_PATH = "./oracle/results/oracle_kl_smollm360m_int4_gfull_20x512.pt"
-SIGNALS_PATH = "./oracle/results/signals_smollm360m_20x512.pt"
-OUTPUT_PATH = "./l2_norm_mlp/results/key_norm_linear_smollm360m.pt"
+ORACLE_PATH = "./oracle/results/oracle_kl_llama3_8b_instruct_int4_gfull_20x512.pt"
+SIGNALS_PATH = "./oracle/results/signals_llama3_8b_instruct_20x512.pt"
+USE_POSITION = False
+OUTPUT_PATH = f"./l2_norm_mlp/results/key_norm_linear_llama3_8b_instruct{'' if USE_POSITION else '_nopos'}.pt"
 H = 64
 SEED = 0
 
@@ -26,8 +27,11 @@ num_positions = scores_h64.shape[1]
 key_norm = key_norm.permute(1, 2, 0)[:, :num_positions, :]
 
 num_chunks = signals["num_chunks"]
-position_feature = torch.arange(num_positions).repeat(num_chunks, 1) / num_positions
-features = torch.cat((key_norm, position_feature.unsqueeze(-1)), dim=-1)
+if USE_POSITION:
+    position_feature = torch.arange(num_positions).repeat(num_chunks, 1) / num_positions
+    features = torch.cat((key_norm, position_feature.unsqueeze(-1)), dim=-1)
+else:
+    features = key_norm
 
 # Splitting data
 training_set = features[:10, :, :]
@@ -115,7 +119,8 @@ torch.save(
         "llm": signals["model"],
         "training_chunks": list(range(10)),
         "seed": SEED,
-        "num_positions": num_positions
+        "num_positions": num_positions,
+        "use_position": USE_POSITION,
     },
     OUTPUT_PATH,
 )
