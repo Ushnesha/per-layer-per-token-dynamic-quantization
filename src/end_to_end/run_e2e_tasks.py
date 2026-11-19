@@ -25,7 +25,11 @@ Results are saved after every combination, so a run that stops early keeps what 
 
 Run from the repo root:
     python -m src.end_to_end.run_e2e_tasks --smoke   # 2-3 minute check: FP16 weights, 2 + 2 examples
-    python -m src.end_to_end.run_e2e_tasks           # full run, roughly 45-60 minutes on an A100
+    python -m src.end_to_end.run_e2e_tasks           # every checkpoint, about 30 minutes on an A100
+    python -m src.end_to_end.run_e2e_tasks awq       # only the checkpoints with "awq" in their name
+
+With a filter, only those checkpoints run again. The saved results for the others are kept, and
+the table shows all of them.
 """
 
 import os
@@ -60,8 +64,11 @@ WEIGHTS = {
     "FP16": ("models/llama-3-8b-instruct", 16.061),
     "GPTQ W8 (static)": ("models/gptq/llama3-8b-instruct-w8a16", 9.25),
     "GPTQ W4 (static)": ("models/gptq/llama3-8b-instruct-w4a16", 5.733),
-    "Mixed ref-kl-5.50 (per-layer)": ("models/mixed/llama3-8b-instruct-ref-kl-5.50", 5.499),
+    "Mixed GPTQ ref-kl-5.50 (per-layer)": ("models/mixed/llama3-8b-instruct-ref-kl-5.50", 5.499),
+    "AWQ W4 (static)": ("models/awq/llama3-8b-instruct-w4a16", 5.728),
+    "Mixed AWQ ref-kl-5.50 (per-layer)": ("models/mixed/awq/llama3-8b-instruct-ref-kl-5.50", 5.485),
 }
+RENAMED = {"Mixed ref-kl-5.50 (per-layer)": "Mixed GPTQ ref-kl-5.50 (per-layer)"}  # name in older results
 # name: (scorer factory, fraction of the tokens leaving the window kept in full precision)
 KV_SETTINGS = {
     "full precision": (PositionScorer, 1.0),
@@ -145,6 +152,22 @@ def run_hotpotqa(model, tokenizer, examples, make_cache) -> float:
     return 100 * sum(scores) / len(scores)
 
 
+def previous_results(selected) -> list[dict]:
+    """Saved rows for the checkpoints that aren't being run again."""
+    if not os.path.exists(OUTPUT_PATH):
+        return []
+    with open(OUTPUT_PATH) as f:
+        rows = json.load(f)["results"]
+    for row in rows:
+        row["weights"] = RENAMED.get(row["weights"], row["weights"])
+    return [row for row in rows if row["weights"] in WEIGHTS and row["weights"] not in selected]
+
+
+def in_order(rows: list[dict]) -> list[dict]:
+    weights, kv = list(WEIGHTS), list(KV_SETTINGS)
+    return sorted(rows, key=lambda r: (weights.index(r["weights"]), kv.index(r["kv_cache"])))
+
+
 def save(results: list[dict], smoke: bool) -> None:
     if smoke:
         return
@@ -165,10 +188,10 @@ def save(results: list[dict], smoke: bool) -> None:
 
 
 def print_table(results: list[dict]) -> None:
-    print(f"\n{'Weights':30s} {'KV cache':31s} {'Passkey':>8s} {'Exact':>6s} {'Fact FP':>8s} "
+    print(f"\n{'Weights':35s} {'KV cache':31s} {'Passkey':>8s} {'Exact':>6s} {'Fact FP':>8s} "
           f"{'HotpotQA':>9s} {'ms/tok':>7s} {'KV MiB@7K':>10s}")
     for r in results:
-        print(f"{r['weights']:30s} {r['kv_cache']:31s} {r['passkey_found']:7.1f}% {r['passkey_exact_match']:5.1f}% "
+        print(f"{r['weights']:35s} {r['kv_cache']:31s} {r['passkey_found']:7.1f}% {r['passkey_exact_match']:5.1f}% "
               f"{r['passkey_sentence_kept']:7.0f}% {r['hotpotqa_f1']:9.1f} {r['decode_ms_per_token']:7.1f} "
               f"{r['kv_mib_measured_at_7k']:10.1f}")
 
@@ -177,8 +200,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--smoke", action="store_true",
                         help="quick check: FP16 weights only, 2 passkey + 2 HotpotQA examples, nothing saved")
+    parser.add_argument("filter", nargs="?", default="",
+                        help='only run the checkpoints whose name contains this word, e.g. "awq"')
     args = parser.parse_args()
-    weights = dict(list(WEIGHTS.items())[:1]) if args.smoke else WEIGHTS
+    if args.smoke:
+        weights = dict(list(WEIGHTS.items())[:1])
+    else:
+        weights = {name: v for name, v in WEIGHTS.items() if args.filter.lower() in name.lower()}
+        if not weights:
+            parser.error(f"no checkpoint name contains '{args.filter}'. Names: {list(WEIGHTS)}")
+    kept = [] if args.smoke else previous_results(weights)
 
     results, passkey, hotpotqa = [], None, None
     for weights_name, (path, weight_gb) in weights.items():
@@ -211,13 +242,13 @@ def main() -> None:
             results.append(row)
             print(f"{weights_name} + {kv_name}: passkey {row['passkey_found']:.1f}%, "
                   f"HotpotQA F1 {row['hotpotqa_f1']:.1f}")
-            save(results, args.smoke)
+            save(in_order(kept + results), args.smoke)
 
         del model
         gc.collect()
         torch.cuda.empty_cache()
 
-    print_table(results)
+    print_table(in_order(kept + results))
     if not args.smoke:
         print(f"\nSaved to {OUTPUT_PATH}")
 

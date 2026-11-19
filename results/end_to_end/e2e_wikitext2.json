@@ -86,7 +86,7 @@
       "total_gb": 5.858701904296875
     },
     {
-      "weights": "Mixed ref-kl-5.50 (per-layer)",
+      "weights": "Mixed GPTQ ref-kl-5.50 (per-layer)",
       "kv_cache": "full precision",
       "perplexity": 8.783809235847544,
       "weight_gb": 5.499,
@@ -94,7 +94,7 @@
       "total_gb": 5.999
     },
     {
-      "weights": "Mixed ref-kl-5.50 (per-layer)",
+      "weights": "Mixed GPTQ ref-kl-5.50 (per-layer)",
       "kv_cache": "static INT2",
       "perplexity": 24.980745744274998,
       "weight_gb": 5.499,
@@ -102,12 +102,60 @@
       "total_gb": 5.583159851074218
     },
     {
-      "weights": "Mixed ref-kl-5.50 (per-layer)",
+      "weights": "Mixed GPTQ ref-kl-5.50 (per-layer)",
       "kv_cache": "key norm, 10% kept (per-token)",
       "perplexity": 21.760770975687443,
       "weight_gb": 5.499,
       "kv_mib_at_4k": 128.71875,
       "total_gb": 5.624701904296875
+    },
+    {
+      "weights": "AWQ W4 (static)",
+      "kv_cache": "full precision",
+      "perplexity": 8.89232308839432,
+      "weight_gb": 5.728,
+      "kv_mib_at_4k": 512.0,
+      "total_gb": 6.228
+    },
+    {
+      "weights": "AWQ W4 (static)",
+      "kv_cache": "static INT2",
+      "perplexity": 28.05402071233567,
+      "weight_gb": 5.728,
+      "kv_mib_at_4k": 86.1796875,
+      "total_gb": 5.8121598510742185
+    },
+    {
+      "weights": "AWQ W4 (static)",
+      "kv_cache": "key norm, 10% kept (per-token)",
+      "perplexity": 24.222730119361042,
+      "weight_gb": 5.728,
+      "kv_mib_at_4k": 128.71875,
+      "total_gb": 5.853701904296875
+    },
+    {
+      "weights": "Mixed AWQ ref-kl-5.50 (per-layer)",
+      "kv_cache": "full precision",
+      "perplexity": 8.754711239908588,
+      "weight_gb": 5.485,
+      "kv_mib_at_4k": 512.0,
+      "total_gb": 5.985
+    },
+    {
+      "weights": "Mixed AWQ ref-kl-5.50 (per-layer)",
+      "kv_cache": "static INT2",
+      "perplexity": 26.27139302340188,
+      "weight_gb": 5.485,
+      "kv_mib_at_4k": 86.1796875,
+      "total_gb": 5.569159851074219
+    },
+    {
+      "weights": "Mixed AWQ ref-kl-5.50 (per-layer)",
+      "kv_cache": "key norm, 10% kept (per-token)",
+      "perplexity": 22.762273257107513,
+      "weight_gb": 5.485,
+      "kv_mib_at_4k": 128.71875,
+      "total_gb": 5.610701904296875
     }
   ]
 }

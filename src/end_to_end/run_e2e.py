@@ -4,8 +4,8 @@ For every weight checkpoint and every KV-cache setting, it streams WikiText-2 th
 and reports perplexity, plus the memory the weights and the KV cache would take in a real
 deployment.
 
-    Weights (Ushnesha, src/adaptive): FP16, static GPTQ W8, static GPTQ W4, per-layer mixed GPTQ
-        (ref-kl-5.50)
+    Weights (Ushnesha, src/adaptive): FP16, static GPTQ W8 and W4, static AWQ W4, and per-layer
+        mixed GPTQ and AWQ (ref-kl-5.50)
     KV cache (Ernesto, src/per_token_quant, prototype v1): full precision, static INT2,
         key-norm policy keeping 10% of tokens in full precision
 
@@ -15,19 +15,24 @@ How each part is measured:
       and get quantized the way they would while generating.
     - Weight memory: the checkpoint size from Ushnesha's results. The weights are unpacked to FP16
       here (see quantized_weights.py), so the GPU doesn't show the real saving.
-    - Static W4: Ushnesha's vLLM result is 8.977 at full-precision KV, but this loader gives about
-      44 for the same folder (her mixed model matches her number). Still being checked with her.
+    - Static GPTQ W4: Ushnesha's vLLM result is 8.977 at full-precision KV, but this loader gives
+      about 44 for the same folder (her other checkpoints match). Still being checked with her.
     - KV memory: for one 4,096-token sequence, counted the same way as RealQuantKVCache stores it
       (FP16 tokens at 16 bits; INT2 tokens at 2 bits plus an FP16 scale and zero point per group
       of 128 values).
 
-Run from the repo root (takes about 15-25 minutes on an A100):
-    python -m src.end_to_end.run_e2e
+Run from the repo root:
+    python -m src.end_to_end.run_e2e        # every checkpoint, about 15 minutes on an A100
+    python -m src.end_to_end.run_e2e awq    # only the checkpoints with "awq" in their name
+
+With a filter, only those checkpoints run again. The saved results for the others are kept, and
+the table shows all of them.
 """
 
 import gc
 import json
 import os
+import sys
 
 import torch
 
@@ -45,8 +50,11 @@ WEIGHTS = {
     "FP16": ("models/llama-3-8b-instruct", 16.061),
     "GPTQ W8 (static)": ("models/gptq/llama3-8b-instruct-w8a16", 9.25),
     "GPTQ W4 (static)": ("models/gptq/llama3-8b-instruct-w4a16", 5.733),
-    "Mixed ref-kl-5.50 (per-layer)": ("models/mixed/llama3-8b-instruct-ref-kl-5.50", 5.499),
+    "Mixed GPTQ ref-kl-5.50 (per-layer)": ("models/mixed/llama3-8b-instruct-ref-kl-5.50", 5.499),
+    "AWQ W4 (static)": ("models/awq/llama3-8b-instruct-w4a16", 5.728),
+    "Mixed AWQ ref-kl-5.50 (per-layer)": ("models/mixed/awq/llama3-8b-instruct-ref-kl-5.50", 5.485),
 }
+RENAMED = {"Mixed ref-kl-5.50 (per-layer)": "Mixed GPTQ ref-kl-5.50 (per-layer)"}  # name in older results
 # name: (scorer factory, fraction of the tokens leaving the window kept in full precision)
 KV_SETTINGS = {
     "full precision": (PositionScorer, 1.0),
@@ -72,8 +80,31 @@ def kv_mib(config, kept_fraction: float, context: int = MEMORY_CONTEXT) -> float
     return (full_bytes + low_bytes) / 2**20
 
 
+def previous_results(selected) -> list[dict]:
+    """Saved rows for the checkpoints that aren't being run again."""
+    if not os.path.exists(OUTPUT_PATH):
+        return []
+    with open(OUTPUT_PATH) as f:
+        rows = json.load(f)["results"]
+    for row in rows:
+        row["weights"] = RENAMED.get(row["weights"], row["weights"])
+    return [row for row in rows if row["weights"] in WEIGHTS and row["weights"] not in selected]
+
+
+def in_order(rows: list[dict]) -> list[dict]:
+    weights, kv = list(WEIGHTS), list(KV_SETTINGS)
+    return sorted(rows, key=lambda r: (weights.index(r["weights"]), kv.index(r["kv_cache"])))
+
+
+# Optional filter: only the checkpoints whose name contains the word given
+word = sys.argv[1].lower() if len(sys.argv) > 1 else ""
+selected = {name: v for name, v in WEIGHTS.items() if word in name.lower()}
+if not selected:
+    sys.exit(f"No checkpoint name contains '{word}'. Names: {list(WEIGHTS)}")
+kept = previous_results(selected)
+
 results = []
-for weights_name, (path, weight_gb) in WEIGHTS.items():
+for weights_name, (path, weight_gb) in selected.items():
     model, tokenizer = load_model(path)
     chunks = load_wikitext(tokenizer=tokenizer, chunk_size=CHUNK_SIZE)[CHUNKS]
 
@@ -95,9 +126,10 @@ for weights_name, (path, weight_gb) in WEIGHTS.items():
     gc.collect()
     torch.cuda.empty_cache()
 
-print(f"\n{'Weights':32s} {'KV cache':32s} {'PPL':>7s} {'Weights GB':>11s} {'KV MiB @4K':>11s} {'Total GB':>9s}")
+results = in_order(kept + results)
+print(f"\n{'Weights':36s} {'KV cache':32s} {'PPL':>7s} {'Weights GB':>11s} {'KV MiB @4K':>11s} {'Total GB':>9s}")
 for r in results:
-    print(f"{r['weights']:32s} {r['kv_cache']:32s} {r['perplexity']:7.3f} {r['weight_gb']:11.2f} "
+    print(f"{r['weights']:36s} {r['kv_cache']:32s} {r['perplexity']:7.3f} {r['weight_gb']:11.2f} "
           f"{r['kv_mib_at_4k']:11.1f} {r['total_gb']:9.2f}")
 
 os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
