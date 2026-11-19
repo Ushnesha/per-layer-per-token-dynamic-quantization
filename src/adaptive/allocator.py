@@ -18,6 +18,7 @@ Usage:
 
 import argparse
 import json
+import random
 import struct
 from pathlib import Path
 from typing import Dict, List
@@ -144,6 +145,36 @@ class Allocator:
             c -= -(-self.options[i][bits]["bytes"] // BIN_BYTES)
         return allocation
 
+    def control_order(self, kind: str, seed: int = 0) -> List[str]:
+        """Decoder units in the order a sensitivity-free control upgrades them.
+
+        random    seeded shuffle
+        position  outermost layers first (0, 31, 1, 30, ...), all units of a layer together
+        """
+        names = [u["name"] for u in self.units if u["kind"] != "lm_head"]
+        if kind == "random":
+            random.Random(seed).shuffle(names)
+            return names
+        if kind == "position":
+            num_layers = max(u["layer"] for u in self.units) + 1
+            rank = {}
+            for i in range(num_layers):
+                rank[i // 2 if i % 2 == 0 else num_layers - 1 - i // 2] = i
+            return sorted(names, key=lambda n: rank[int(n.split(".")[1])])
+        raise ValueError(f"Unknown control: {kind}")
+
+    def solve_by_order(self, budget_gb: float, order: List[str]) -> Dict[str, int]:
+        """Control allocation: lm_head at 8 bits like the guided ones, then decoder
+        units upgraded to 8 bits in `order` while they fit the budget."""
+        allocation = {u["name"]: (8 if u["kind"] == "lm_head" else 4) for u in self.units}
+        if self.size_gb(allocation) > budget_gb:
+            raise ValueError(f"Budget {budget_gb} GB is below the smallest control allocation")
+        for name in order:
+            trial = {**allocation, name: 8}
+            if self.size_gb(trial) <= budget_gb:
+                allocation = trial
+        return allocation
+
 
 def overrides(allocation: Dict[str, int], base_bits: int = 4) -> Dict[str, int]:
     """Only the units that differ from build_allocation's defaults (base bits, lm_head 16)."""
@@ -155,8 +186,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Budget-constrained bit allocation")
     parser.add_argument("--budget", type=float, nargs="+", required=True, help="Weight storage budgets (GB)")
     parser.add_argument("--profile", type=str, default=str(DEFAULT_PROFILE))
-    parser.add_argument("--signal", type=str, default="reference", choices=["reference", "cheap"])
-    parser.add_argument("--metric", type=str, default="kl", help="kl | delta_nll (reference), abs | rel (cheap)")
+    parser.add_argument("--signal", type=str, default="reference", choices=["reference", "gptq", "cheap"])
+    parser.add_argument("--metric", type=str, default="kl", help="kl | delta_nll (reference, gptq), abs | rel (cheap)")
     args = parser.parse_args()
 
     alloc = Allocator(args.profile, signal=args.signal, metric=args.metric)

@@ -36,6 +36,21 @@ LM_HEAD_BITS = (8, 16)
 
 
 @torch.no_grad()
+def rtn_sym(w: torch.Tensor, bits: int, group_size: int = GROUP_SIZE):
+    """Round-to-nearest on the GPTQ sym grid (scale = 2 * max|w| / maxq, zero = 2^(bits-1)).
+
+    Returns unsigned codes q [out, in] (int32) and scales [out, groups] (float32).
+    """
+    out_features, in_features = w.shape
+    maxq = 2 ** bits - 1
+    zero = (maxq + 1) // 2
+    wg = w.float().reshape(out_features, in_features // group_size, group_size)
+    scale = (wg.abs().amax(dim=-1, keepdim=True) * 2 / maxq).clamp(min=1e-8)
+    q = (wg / scale).round().add(zero).clamp(0, maxq).to(torch.int32).reshape(out_features, in_features)
+    return q, scale.squeeze(-1)
+
+
+@torch.no_grad()
 def pack_gptq_rtn(w: torch.Tensor, bits: int, group_size: int = GROUP_SIZE) -> Dict[str, torch.Tensor]:
     """Round-to-nearest symmetric quantization of w [out, in] into GPTQ v1 tensors.
 
@@ -48,9 +63,7 @@ def pack_gptq_rtn(w: torch.Tensor, bits: int, group_size: int = GROUP_SIZE) -> D
     zero = (maxq + 1) // 2
     pack = 32 // bits
 
-    wg = w.float().reshape(out_features, in_features // group_size, group_size)
-    scale = (wg.abs().amax(dim=-1, keepdim=True) * 2 / maxq).clamp(min=1e-8)
-    q = (wg / scale).round().add(zero).clamp(0, maxq).to(torch.int32).reshape(out_features, in_features)
+    q, scale = rtn_sym(w, bits, group_size)
 
     q = q.t().contiguous().reshape(in_features // pack, pack, out_features)
     qweight = torch.zeros(in_features // pack, out_features, dtype=torch.int32)
@@ -67,9 +80,22 @@ def pack_gptq_rtn(w: torch.Tensor, bits: int, group_size: int = GROUP_SIZE) -> D
     return {
         "qweight": qweight,
         "qzeros": qzeros,
-        "scales": scale.squeeze(-1).t().contiguous().to(torch.float16),
+        "scales": scale.t().contiguous().to(torch.float16),
         "g_idx": (torch.arange(in_features) // group_size).to(torch.int32),
     }
+
+
+@torch.no_grad()
+def dequantize_gptq(qweight: torch.Tensor, qzeros: torch.Tensor, scales: torch.Tensor, g_idx: torch.Tensor,
+                    bits: int) -> torch.Tensor:
+    """Inverse of pack_gptq_rtn for any GPTQ v1 module: returns the dequantized weight [out, in] in fp16."""
+    pack = 32 // bits
+    mask = 2 ** bits - 1
+    shifts = torch.arange(pack, device=qweight.device, dtype=torch.int32) * bits
+    q = ((qweight.unsqueeze(1) >> shifts.view(1, -1, 1)) & mask).reshape(-1, qweight.shape[1])     # [in, out]
+    z = ((qzeros.unsqueeze(2) >> shifts.view(1, 1, -1)) & mask).reshape(qzeros.shape[0], -1) + 1  # [groups, out]
+    g = g_idx.long()
+    return ((q.float() - z.float()[g]) * scales.float()[g]).t().contiguous().to(torch.float16)
 
 
 def quantize_lm_head_in_checkpoint(model_dir: Path, bits: int, group_size: int = GROUP_SIZE):

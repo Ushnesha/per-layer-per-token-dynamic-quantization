@@ -33,11 +33,16 @@ def _import_mixed():
     from src.adaptive.mixed_quantizer import MixedGPTQQuantizer
     return MixedGPTQQuantizer
 
+def _import_mixed_awq():
+    from src.adaptive.mixed_awq import MixedAWQQuantizer
+    return MixedAWQQuantizer
+
 # Register lazy loaders with the factory
 QuantizerFactory.register_lazy("awq", _import_awq)
 QuantizerFactory.register_lazy("gptq", _import_gptq)
 QuantizerFactory.register_lazy("smoothquant", _import_smoothquant)
 QuantizerFactory.register_lazy("mixed", _import_mixed)
+QuantizerFactory.register_lazy("mixed-awq", _import_mixed_awq)
 
 __all__ = [
     "BaseQuantizer",

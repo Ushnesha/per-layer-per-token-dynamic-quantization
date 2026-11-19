@@ -76,12 +76,14 @@ AWQ_OUTPUT_BASE = MODELS_DIR / "awq"
 GPTQ_OUTPUT_BASE = MODELS_DIR / "gptq"
 SMOOTHQUANT_OUTPUT_BASE = MODELS_DIR / "smoothquant"
 MIXED_OUTPUT_BASE = MODELS_DIR / "mixed"
+MIXED_AWQ_OUTPUT_BASE = MIXED_OUTPUT_BASE / "awq"  # under models/mixed, which lives on /scratch
+MIXED_METHODS = ("mixed", "mixed-awq")
 
 # ── Dataclasses ────────────────────────────────────────────────────────────
 @dataclass
 class QuantConfig:
     """Configuration for a single quantization run."""
-    method: str  # "fp16" | "awq" | "gptq" | "smoothquant" | "mixed"
+    method: str  # "fp16" | "awq" | "gptq" | "smoothquant" | "mixed" | "mixed-awq"
     bits: int = 16  # 16 for FP16, 8 for INT8, 4 for INT4 (base bits for mixed)
     group_size: int = GROUP_SIZE
     zero_point: bool = True
@@ -95,6 +97,8 @@ class QuantConfig:
             return "fp16"
         if self.method == "mixed":
             return f"MIXED-{self.name}"
+        if self.method == "mixed-awq":
+            return f"MIXED-AWQ-{self.name}"
         suffix = "a16" if self.method in ("awq", "gptq") else "a8"
         return f"{self.method.upper()}-w{self.bits}{suffix}"
 
@@ -102,6 +106,8 @@ class QuantConfig:
     def output_dir(self) -> Path:
         if self.method == "mixed":
             return MIXED_OUTPUT_BASE / f"llama3-8b-instruct-{self.name}"
+        if self.method == "mixed-awq":
+            return MIXED_AWQ_OUTPUT_BASE / f"llama3-8b-instruct-{self.name}"
         base = {
             "awq": AWQ_OUTPUT_BASE,
             "gptq": GPTQ_OUTPUT_BASE,

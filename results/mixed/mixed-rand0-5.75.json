@@ -1,0 +1,115 @@
+{
+  "method": "mixed",
+  "label": "MIXED-rand0-5.75",
+  "bits": 4,
+  "model_path": "/home/udaripa/projects/per-layer-per-token-llm-serving/models/mixed/llama3-8b-instruct-rand0-5.75",
+  "model_name": "/home/udaripa/projects/per-layer-per-token-llm-serving/models/llama-3-8b-instruct",
+  "timestamp": "2026-11-16T23:49:31.347094",
+  "protocol": {
+    "seed": 0,
+    "calibration": {
+      "source": "pile",
+      "num_samples": 128,
+      "seq_len": 2048
+    },
+    "method_config": {
+      "group_size": 128,
+      "sym": true,
+      "desc_act": false,
+      "damp_percent": 0.01,
+      "base_bits": 4,
+      "units_by_bits": {
+        "4": 108,
+        "8": [
+          "layers.0.down",
+          "layers.1.qkv",
+          "layers.2.gate_up",
+          "layers.3.gate_up",
+          "layers.4.qkv",
+          "layers.5.down",
+          "layers.7.o",
+          "layers.10.down",
+          "layers.11.qkv",
+          "layers.12.qkv",
+          "layers.12.o",
+          "layers.13.gate_up",
+          "layers.18.qkv",
+          "layers.20.down",
+          "layers.23.gate_up",
+          "layers.23.down",
+          "layers.25.o",
+          "layers.27.qkv",
+          "layers.27.down",
+          "layers.31.qkv",
+          "lm_head"
+        ]
+      }
+    },
+    "ppl": {
+      "dataset": "wikitext-2-raw-v1 test",
+      "seq_len": 2048,
+      "windows": "non-overlapping, BOS + seq_len-1 tokens"
+    },
+    "lm_eval": {
+      "tasks": [
+        "hellaswag"
+      ],
+      "num_fewshot": 0,
+      "batch_size": "32",
+      "backend": "vllm"
+    },
+    "latency": {
+      "batch_size": 1,
+      "input_len": 512,
+      "output_len": 128,
+      "warmup": 3,
+      "iters": 10,
+      "statistic": "median"
+    },
+    "engine": {
+      "name": "vllm",
+      "dtype": "float16",
+      "max_model_len": 4096,
+      "gpu_memory_utilization": 0.85,
+      "prefix_caching": false
+    }
+  },
+  "memory": {
+    "weight_storage_gb": 5.748,
+    "vllm_weight_memory_gib": 5.32
+  },
+  "engine": {
+    "vllm_version": "0.32.0",
+    "dtype": "torch.float16",
+    "quantization": "auto_gptq",
+    "max_model_len": 4096,
+    "gpu_memory_utilization": 0.85
+  },
+  "perplexity": {
+    "wikitext": 8.9385,
+    "seq_len": 2048,
+    "num_windows": 141,
+    "num_tokens": 288627
+  },
+  "latency": {
+    "batch_size": 1,
+    "input_len": 512,
+    "output_len": 128,
+    "iters": 10,
+    "ttft_ms": 43.573,
+    "tpot_ms": 4.945,
+    "e2e_ms": 671.573,
+    "e2e_ms_stdev": 2.596
+  },
+  "lm_eval": {
+    "hellaswag": {
+      "name": "hellaswag",
+      "alias": "hellaswag",
+      "sample_len": 10042,
+      "acc,none": 0.5684126667994424,
+      "acc_stderr,none": 0.004942853459371542,
+      "acc_norm,none": 0.7499502091216889,
+      "acc_norm_stderr,none": 0.00432156430382249
+    }
+  }
+}

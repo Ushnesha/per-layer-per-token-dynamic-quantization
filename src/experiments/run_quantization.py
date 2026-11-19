@@ -27,6 +27,7 @@ from transformers import AutoTokenizer
 
 from src.config.settings import (
     DEFAULT_MODEL_PATH, CALIBRATION_NUM_SAMPLES, CALIBRATION_SEQ_LEN, CALIBRATION_SOURCE, GROUP_SIZE, SEED,
+    MIXED_METHODS,
 )
 from src.baselines.base_quantizer import QuantizerFactory
 from src.utils.data_loader import get_calibration_data
@@ -51,20 +52,32 @@ def run(args):
 
             # Mixed precision: base bits plus per-unit overrides
             extra = {}
-            if method == "mixed" and getattr(args, "budget", None):
-                # Sensitivity-guided: solve the allocation for a weight-storage budget
+            if method in MIXED_METHODS and getattr(args, "budget", None):
                 from src.adaptive.allocator import Allocator, overrides
-                allocator = Allocator(signal=args.signal, metric=args.metric)
-                allocation = allocator.solve(args.budget)
-                args.name = args.name or f"{args.signal[:3]}-{args.metric}-{args.budget:.2f}"
+                if args.signal in ("random", "position"):
+                    # Sensitivity-free control at the same budget
+                    allocator = Allocator()
+                    allocation = allocator.solve_by_order(args.budget, allocator.control_order(args.signal, args.seed))
+                    tag = f"rand{args.seed}" if args.signal == "random" else "pos"
+                    meta = {"signal": args.signal, "seed": args.seed}
+                else:
+                    # Sensitivity-guided: solve the allocation for a weight-storage budget
+                    allocator = Allocator(signal=args.signal, metric=args.metric)
+                    allocation = allocator.solve(args.budget)
+                    tag = f"{args.signal[:3]}-{args.metric}"
+                    meta = {"signal": args.signal, "metric": args.metric}
+                args.name = args.name or f"{tag}-{args.budget:.2f}"
+                # Predicted reference KL for every allocation, so all variants are comparable
+                reference = allocator if args.signal == "reference" else Allocator()
                 extra = {"name": args.name, "assignments": overrides(allocation, base_bits=bits),
-                         "meta": {"budget_gb": args.budget, "signal": args.signal, "metric": args.metric,
+                         "meta": {"budget_gb": args.budget, **meta,
                                   "predicted_gb": round(allocator.size_gb(allocation), 4),
-                                  "predicted_cost": allocator.predicted_cost(allocation)}}
-            elif method == "mixed":
+                                  "predicted_cost": allocator.predicted_cost(allocation),
+                                  "predicted_reference_kl": reference.predicted_cost(allocation)}}
+            elif method in MIXED_METHODS:
                 from src.adaptive.allocation import parse_assignments
                 if not getattr(args, "name", None):
-                    raise ValueError("--name (with --assign) or --budget is required for --method mixed")
+                    raise ValueError(f"--name (with --assign) or --budget is required for --method {method}")
                 extra = {"name": args.name, "assignments": parse_assignments(args.assign)}
 
             # Create quantizer

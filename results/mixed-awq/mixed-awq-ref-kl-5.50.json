@@ -1,0 +1,116 @@
+{
+  "method": "mixed-awq",
+  "label": "MIXED-AWQ-ref-kl-5.50",
+  "bits": 4,
+  "model_path": "/home/udaripa/projects/per-layer-per-token-llm-serving/models/mixed/awq/llama3-8b-instruct-ref-kl-5.50",
+  "model_name": "/home/udaripa/projects/per-layer-per-token-llm-serving/models/llama-3-8b-instruct",
+  "timestamp": "2026-11-17T23:27:55.579458",
+  "protocol": {
+    "seed": 0,
+    "calibration": {
+      "source": "pile",
+      "num_samples": 128,
+      "seq_len": 2048
+    },
+    "method_config": {
+      "group_size": 128,
+      "zero_point": true,
+      "format": "compressed-tensors",
+      "lm_head": "sym RTN",
+      "base_bits": 4,
+      "units_by_bits": {
+        "8": [
+          "layers.0.qkv",
+          "layers.1.qkv",
+          "layers.1.down",
+          "layers.2.qkv",
+          "layers.3.qkv",
+          "layers.4.qkv",
+          "layers.5.qkv",
+          "layers.6.qkv",
+          "layers.7.qkv",
+          "layers.8.qkv",
+          "layers.8.o",
+          "layers.9.qkv",
+          "layers.9.o",
+          "layers.10.qkv",
+          "layers.11.qkv",
+          "layers.11.o",
+          "layers.12.qkv",
+          "layers.12.o",
+          "layers.13.qkv",
+          "layers.13.o",
+          "layers.31.down",
+          "lm_head"
+        ],
+        "4": 107
+      }
+    },
+    "ppl": {
+      "dataset": "wikitext-2-raw-v1 test",
+      "seq_len": 2048,
+      "windows": "non-overlapping, BOS + seq_len-1 tokens"
+    },
+    "lm_eval": {
+      "tasks": [
+        "hellaswag"
+      ],
+      "num_fewshot": 0,
+      "batch_size": "32",
+      "backend": "vllm"
+    },
+    "latency": {
+      "batch_size": 1,
+      "input_len": 512,
+      "output_len": 128,
+      "warmup": 3,
+      "iters": 10,
+      "statistic": "median"
+    },
+    "engine": {
+      "name": "vllm",
+      "dtype": "float16",
+      "max_model_len": 4096,
+      "gpu_memory_utilization": 0.85,
+      "prefix_caching": false
+    }
+  },
+  "memory": {
+    "weight_storage_gb": 5.485,
+    "vllm_weight_memory_gib": 5.11
+  },
+  "engine": {
+    "vllm_version": "0.32.0",
+    "dtype": "torch.float16",
+    "quantization": "compressed-tensors",
+    "max_model_len": 4096,
+    "gpu_memory_utilization": 0.85
+  },
+  "perplexity": {
+    "wikitext": 8.4844,
+    "seq_len": 2048,
+    "num_windows": 141,
+    "num_tokens": 288627
+  },
+  "latency": {
+    "batch_size": 1,
+    "input_len": 512,
+    "output_len": 128,
+    "iters": 10,
+    "ttft_ms": 47.012,
+    "tpot_ms": 5.171,
+    "e2e_ms": 703.683,
+    "e2e_ms_stdev": 0.2
+  },
+  "lm_eval": {
+    "hellaswag": {
+      "name": "hellaswag",
+      "alias": "hellaswag",
+      "sample_len": 10042,
+      "acc,none": 0.5734913363871739,
+      "acc_stderr,none": 0.004935587729948869,
+      "acc_norm,none": 0.755327623979287,
+      "acc_norm_stderr,none": 0.004290142029921715
+    }
+  }
+}

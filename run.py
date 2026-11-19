@@ -24,6 +24,10 @@ Usage:
     # Mixed-precision GPTQ (base W4, listed units overridden) + evaluation
     python run.py quantize --method mixed --bits 4 --name lm8-down8 --assign lm_head=8 layers.1.down=8
     python run.py evaluate --method mixed --bits 4 --name lm8-down8
+
+    # Same allocations on top of AWQ (compressed-tensors checkpoint; first run builds the AWQ base)
+    python run.py quantize --method mixed-awq --bits 4 --name lm8 --assign lm_head=8
+    python run.py quantize --method mixed-awq --bits 4 --budget 5.75
 """
 
 import argparse
@@ -45,7 +49,7 @@ def main():
     # ── Quantize ────────────────────────────────────────────────────────
     quantize_parser = subparsers.add_parser("quantize", help="Run quantization")
     quantize_parser.add_argument("--method", type=str, nargs="+", default=["awq"],
-                                 choices=["awq", "gptq", "smoothquant", "mixed"])
+                                 choices=["awq", "gptq", "smoothquant", "mixed", "mixed-awq"])
     quantize_parser.add_argument("--bits", type=int, nargs="+", default=[4], choices=[4, 8])
     quantize_parser.add_argument("--model", type=str, default=None)
     quantize_parser.add_argument("--group-size", type=int, default=128)
@@ -62,17 +66,21 @@ def main():
                                  help="Unit bit overrides for mixed, e.g. lm_head=8 layers.1.down=8")
     quantize_parser.add_argument("--budget", type=float, default=None,
                                  help="Weight storage budget in GB (mixed): allocation solved from the profile")
-    quantize_parser.add_argument("--signal", type=str, default="reference", choices=["reference", "cheap"],
-                                 help="Sensitivity signal the allocator uses (mixed --budget)")
+    quantize_parser.add_argument("--signal", type=str, default="reference",
+                                 choices=["reference", "gptq", "cheap", "random", "position"],
+                                 help="Allocation signal (mixed --budget); random/position are controls")
+    quantize_parser.add_argument("--seed", type=int, default=0, help="Seed for --signal random")
     quantize_parser.add_argument("--metric", type=str, default="kl",
                                  help="kl | delta_nll (reference), abs | rel (cheap)")
 
     # ── Evaluate ────────────────────────────────────────────────────────
     eval_parser = subparsers.add_parser("evaluate", help="Run evaluation suite")
     eval_parser.add_argument("--method", type=str, nargs="+", default=["fp16"],
-                             choices=["fp16", "awq", "gptq", "smoothquant", "mixed"])
+                             choices=["fp16", "awq", "gptq", "smoothquant", "mixed", "mixed-awq"])
     eval_parser.add_argument("--bits", type=int, nargs="+", default=[16])
     eval_parser.add_argument("--name", type=str, default=None, help="Allocation name (mixed only)")
+    eval_parser.add_argument("--tasks", type=str, nargs="+", default=None,
+                             help="lm_eval tasks (default: hellaswag); merged into existing results")
     eval_parser.add_argument("--model", type=str, default=None)
     eval_parser.add_argument("--skip-ppl", action="store_true")
     eval_parser.add_argument("--skip-lm-eval", action="store_true")
@@ -97,6 +105,8 @@ def main():
                                 choices=["pile", "wikitext"])
     profile_parser.add_argument("--skip-reference", action="store_true")
     profile_parser.add_argument("--no-lm-head", action="store_true")
+    profile_parser.add_argument("--gptq-reference", action="store_true",
+                                help="Add KL with GPTQ checkpoint weights to the existing profile")
     profile_parser.add_argument("--out", type=str, default=None)
 
     # ── Pipeline (quantize + evaluate) ──────────────────────────────────

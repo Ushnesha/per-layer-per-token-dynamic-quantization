@@ -25,7 +25,7 @@ from typing import Any, Dict, Optional
 from src.config.settings import (
     QuantConfig, EvalConfig, DEFAULT_MODEL_PATH, PROJECT_ROOT, SEED,
     CALIBRATION_NUM_SAMPLES, CALIBRATION_SEQ_LEN, CALIBRATION_SOURCE, GROUP_SIZE,
-    GPTQ_DAMP_PERCENT, SMOOTHQUANT_ALPHA,
+    GPTQ_DAMP_PERCENT, SMOOTHQUANT_ALPHA, MIXED_METHODS,
     VLLM_DTYPE, VLLM_MAX_MODEL_LEN, VLLM_GPU_MEMORY_UTILIZATION,
 )
 from src.utils.logger import get_logger
@@ -84,6 +84,8 @@ class Evaluator:
                                 "activations": "int8 dynamic per-token"},
                 "mixed": {"group_size": GROUP_SIZE, "sym": True, "desc_act": False,
                           "damp_percent": GPTQ_DAMP_PERCENT, **self._mixed_allocation()},
+                "mixed-awq": {"group_size": GROUP_SIZE, "zero_point": True, "format": "compressed-tensors",
+                              "lm_head": "sym RTN", **self._mixed_allocation()},
             }[self.quant.method],
             "ppl": {"dataset": "wikitext-2-raw-v1 test", "seq_len": self.eval.ppl_seq_len,
                     "windows": "non-overlapping, BOS + seq_len-1 tokens"},
@@ -100,7 +102,7 @@ class Evaluator:
     def _mixed_allocation(self) -> Dict[str, Any]:
         """Per-unit bits of a mixed-precision checkpoint, grouped by bit-width."""
         path = self.quant.output_dir / "allocation.json"
-        if self.quant.method != "mixed" or not path.exists():
+        if self.quant.method not in MIXED_METHODS or not path.exists():
             return {}
         with open(path) as f:
             alloc = json.load(f)
@@ -251,10 +253,33 @@ class Evaluator:
 
     # ── Save & Report ─────────────────────────────────────────────────────
     def _save_results(self) -> Path:
-        """Save results to JSON file."""
+        """Save results to JSON, merged into an existing file for the same label.
+
+        Sections a run skipped keep their earlier values, and lm_eval tasks are
+        merged per task, so extra tasks can be added later with
+        --skip-ppl --skip-memory --skip-latency --tasks ...
+        """
         filename = f"{self.quant.label.lower()}.json"
         output_path = self.quant.results_dir / filename
         self.quant.results_dir.mkdir(parents=True, exist_ok=True)
+
+        merged: Dict[str, Any] = {}
+        if output_path.exists():
+            with open(output_path) as f:
+                merged = json.load(f)
+        old_lm_eval = merged.get("lm_eval", {})
+        old_tasks = merged.get("protocol", {}).get("lm_eval", {}).get("tasks", [])
+
+        merged.update(self.results)
+        new_lm_eval = self.results.get("lm_eval")
+        ran_lm_eval = new_lm_eval is not None and "error" not in new_lm_eval
+        if ran_lm_eval and "error" not in old_lm_eval:
+            merged["lm_eval"] = {**old_lm_eval, **new_lm_eval}
+        elif new_lm_eval is None and old_lm_eval:
+            merged["lm_eval"] = old_lm_eval
+        merged["protocol"]["lm_eval"]["tasks"] = sorted(
+            set(old_tasks) | (set(self.eval.tasks) if ran_lm_eval else set())) or self.eval.tasks
+        self.results = merged
 
         with open(output_path, "w") as f:
             json.dump(self.results, f, indent=2, default=str)
@@ -271,9 +296,13 @@ class Evaluator:
         if "wikitext" in ppl:
             logger.info(f"  WikiText-2 PPL: {ppl['wikitext']}")
 
-        hs = self.results.get("lm_eval", {}).get("hellaswag", {})
-        if "acc_norm,none" in hs:
-            logger.info(f"  HellaSwag acc_norm: {hs['acc_norm,none']:.4f} ± {hs.get('acc_norm_stderr,none', 0):.4f}")
+        lm_eval = self.results.get("lm_eval", {})
+        for task in self.results.get("protocol", {}).get("lm_eval", {}).get("tasks", []):
+            res = lm_eval.get(task, {})
+            metric = "acc_norm,none" if "acc_norm,none" in res else "acc,none"
+            if metric in res:
+                stderr = res.get(metric.replace(",", "_stderr,"), 0)
+                logger.info(f"  {task} {metric.split(',')[0]}: {res[metric]:.4f} ± {stderr:.4f}")
 
         mem = self.results.get("memory", {})
         for k, v in mem.items():
