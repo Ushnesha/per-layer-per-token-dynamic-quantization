@@ -4,3 +4,5 @@ models/
 =5.5.3
 logs/
 .vscode/
+/evaluation_*.out
+/results/benchmark/
