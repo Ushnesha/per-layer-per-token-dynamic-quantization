@@ -1,0 +1,113 @@
+{
+  "settings": {
+    "dataset": "wikitext-2-raw-v1 test",
+    "chunk_size": 2048,
+    "chunks": "5-24",
+    "stride": 64,
+    "window": 128,
+    "num_sinks": 4,
+    "kv_low_bits": 2,
+    "kv_group_size": "head_dim",
+    "key_norm_checkpoint": "src/per_token_quant/l2_norm_mlp/results/key_norm_linear_llama3_8b_instruct_nopos.pt",
+    "dtype": "float16",
+    "memory_context_tokens": 4096
+  },
+  "results": [
+    {
+      "weights": "FP16",
+      "kv_cache": "full precision",
+      "perplexity": 8.464149879607426,
+      "weight_gb": 16.061,
+      "kv_mib_at_4k": 512.0,
+      "total_gb": 16.561
+    },
+    {
+      "weights": "FP16",
+      "kv_cache": "static INT2",
+      "perplexity": 22.078213646180163,
+      "weight_gb": 16.061,
+      "kv_mib_at_4k": 86.1796875,
+      "total_gb": 16.14515985107422
+    },
+    {
+      "weights": "FP16",
+      "kv_cache": "key norm, 10% kept (per-token)",
+      "perplexity": 19.62529892921457,
+      "weight_gb": 16.061,
+      "kv_mib_at_4k": 128.71875,
+      "total_gb": 16.186701904296875
+    },
+    {
+      "weights": "GPTQ W8 (static)",
+      "kv_cache": "full precision",
+      "perplexity": 8.46347316902803,
+      "weight_gb": 9.25,
+      "kv_mib_at_4k": 512.0,
+      "total_gb": 9.75
+    },
+    {
+      "weights": "GPTQ W8 (static)",
+      "kv_cache": "static INT2",
+      "perplexity": 22.48247015410435,
+      "weight_gb": 9.25,
+      "kv_mib_at_4k": 86.1796875,
+      "total_gb": 9.334159851074219
+    },
+    {
+      "weights": "GPTQ W8 (static)",
+      "kv_cache": "key norm, 10% kept (per-token)",
+      "perplexity": 19.906005183054173,
+      "weight_gb": 9.25,
+      "kv_mib_at_4k": 128.71875,
+      "total_gb": 9.375701904296875
+    },
+    {
+      "weights": "GPTQ W4 (static)",
+      "kv_cache": "full precision",
+      "perplexity": 36.01245255448397,
+      "weight_gb": 5.733,
+      "kv_mib_at_4k": 512.0,
+      "total_gb": 6.233
+    },
+    {
+      "weights": "GPTQ W4 (static)",
+      "kv_cache": "static INT2",
+      "perplexity": 117.80668571904769,
+      "weight_gb": 5.733,
+      "kv_mib_at_4k": 86.1796875,
+      "total_gb": 5.817159851074218
+    },
+    {
+      "weights": "GPTQ W4 (static)",
+      "kv_cache": "key norm, 10% kept (per-token)",
+      "perplexity": 109.2201991454557,
+      "weight_gb": 5.733,
+      "kv_mib_at_4k": 128.71875,
+      "total_gb": 5.858701904296875
+    },
+    {
+      "weights": "Mixed ref-kl-5.50 (per-layer)",
+      "kv_cache": "full precision",
+      "perplexity": 8.783809235847544,
+      "weight_gb": 5.499,
+      "kv_mib_at_4k": 512.0,
+      "total_gb": 5.999
+    },
+    {
+      "weights": "Mixed ref-kl-5.50 (per-layer)",
+      "kv_cache": "static INT2",
+      "perplexity": 24.980745744274998,
+      "weight_gb": 5.499,
+      "kv_mib_at_4k": 86.1796875,
+      "total_gb": 5.583159851074218
+    },
+    {
+      "weights": "Mixed ref-kl-5.50 (per-layer)",
+      "kv_cache": "key norm, 10% kept (per-token)",
+      "perplexity": 21.760770975687443,
+      "weight_gb": 5.499,
+      "kv_mib_at_4k": 128.71875,
+      "total_gb": 5.624701904296875
+    }
+  ]
+}

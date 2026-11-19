@@ -1,0 +1,259 @@
+{
+  "settings": {
+    "passkey": {
+      "lengths": [
+        2048,
+        7168
+      ],
+      "positions": [
+        0.1,
+        0.5,
+        0.9
+      ],
+      "examples_per_cell": 10,
+      "max_new_tokens": 32
+    },
+    "hotpotqa": {
+      "examples": 50,
+      "input_budget": 7168,
+      "max_new_tokens": 32
+    },
+    "window": 128,
+    "num_sinks": 4,
+    "kv_low_bits": 2,
+    "kv_group_size": "head_dim",
+    "key_norm_checkpoint": "src/per_token_quant/l2_norm_mlp/results/key_norm_linear_llama3_8b_instruct_nopos.pt",
+    "dtype": "float16",
+    "decoding": "greedy"
+  },
+  "results": [
+    {
+      "weights": "FP16",
+      "kv_cache": "full precision",
+      "weight_gb": 16.061,
+      "passkey_found": 100.0,
+      "passkey_exact_match": 78.33333333333333,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 100.0,
+        "2048 @ 50%": 100.0,
+        "2048 @ 90%": 100.0,
+        "7168 @ 10%": 100.0,
+        "7168 @ 50%": 100.0,
+        "7168 @ 90%": 100.0
+      },
+      "passkey_sentence_kept": 100.0,
+      "decode_ms_per_token": 27.19928870288034,
+      "kv_mib_measured_at_7k": 896.55,
+      "hotpotqa_f1": 40.77477477477478
+    },
+    {
+      "weights": "FP16",
+      "kv_cache": "static INT2",
+      "weight_gb": 16.061,
+      "passkey_found": 78.33333333333333,
+      "passkey_exact_match": 61.666666666666664,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 70.0,
+        "2048 @ 50%": 90.0,
+        "2048 @ 90%": 50.0,
+        "7168 @ 10%": 80.0,
+        "7168 @ 50%": 90.0,
+        "7168 @ 90%": 90.0
+      },
+      "passkey_sentence_kept": 0.0,
+      "decode_ms_per_token": 69.57778683145685,
+      "kv_mib_measured_at_7k": 140.2564453125,
+      "hotpotqa_f1": 35.07777777777778
+    },
+    {
+      "weights": "FP16",
+      "kv_cache": "key norm, 10% kept (per-token)",
+      "weight_gb": 16.061,
+      "passkey_found": 100.0,
+      "passkey_exact_match": 78.33333333333333,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 100.0,
+        "2048 @ 50%": 100.0,
+        "2048 @ 90%": 100.0,
+        "7168 @ 10%": 100.0,
+        "7168 @ 50%": 100.0,
+        "7168 @ 90%": 100.0
+      },
+      "passkey_sentence_kept": 96.7647060751915,
+      "decode_ms_per_token": 68.58544698528324,
+      "kv_mib_measured_at_7k": 215.903515625,
+      "hotpotqa_f1": 34.253846153846155
+    },
+    {
+      "weights": "GPTQ W8 (static)",
+      "kv_cache": "full precision",
+      "weight_gb": 9.25,
+      "passkey_found": 100.0,
+      "passkey_exact_match": 81.66666666666667,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 100.0,
+        "2048 @ 50%": 100.0,
+        "2048 @ 90%": 100.0,
+        "7168 @ 10%": 100.0,
+        "7168 @ 50%": 100.0,
+        "7168 @ 90%": 100.0
+      },
+      "passkey_sentence_kept": 100.0,
+      "decode_ms_per_token": 28.48803273686725,
+      "kv_mib_measured_at_7k": 896.4916666666667,
+      "hotpotqa_f1": 40.77477477477478
+    },
+    {
+      "weights": "GPTQ W8 (static)",
+      "kv_cache": "static INT2",
+      "weight_gb": 9.25,
+      "passkey_found": 83.33333333333333,
+      "passkey_exact_match": 70.0,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 70.0,
+        "2048 @ 50%": 90.0,
+        "2048 @ 90%": 70.0,
+        "7168 @ 10%": 80.0,
+        "7168 @ 50%": 90.0,
+        "7168 @ 90%": 100.0
+      },
+      "passkey_sentence_kept": 0.0,
+      "decode_ms_per_token": 72.4642910885935,
+      "kv_mib_measured_at_7k": 140.25,
+      "hotpotqa_f1": 33.0310391363023
+    },
+    {
+      "weights": "GPTQ W8 (static)",
+      "kv_cache": "key norm, 10% kept (per-token)",
+      "weight_gb": 9.25,
+      "passkey_found": 100.0,
+      "passkey_exact_match": 81.66666666666667,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 100.0,
+        "2048 @ 50%": 100.0,
+        "2048 @ 90%": 100.0,
+        "7168 @ 10%": 100.0,
+        "7168 @ 50%": 100.0,
+        "7168 @ 90%": 100.0
+      },
+      "passkey_sentence_kept": 96.96078449487686,
+      "decode_ms_per_token": 70.45853729851336,
+      "kv_mib_measured_at_7k": 215.88815104166667,
+      "hotpotqa_f1": 37.76748251748252
+    },
+    {
+      "weights": "GPTQ W4 (static)",
+      "kv_cache": "full precision",
+      "weight_gb": 5.733,
+      "passkey_found": 100.0,
+      "passkey_exact_match": 85.0,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 100.0,
+        "2048 @ 50%": 100.0,
+        "2048 @ 90%": 100.0,
+        "7168 @ 10%": 100.0,
+        "7168 @ 50%": 100.0,
+        "7168 @ 90%": 100.0
+      },
+      "passkey_sentence_kept": 100.0,
+      "decode_ms_per_token": 26.551866402539115,
+      "kv_mib_measured_at_7k": 896.4625,
+      "hotpotqa_f1": 34.23418803418804
+    },
+    {
+      "weights": "GPTQ W4 (static)",
+      "kv_cache": "static INT2",
+      "weight_gb": 5.733,
+      "passkey_found": 75.0,
+      "passkey_exact_match": 66.66666666666667,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 70.0,
+        "2048 @ 50%": 90.0,
+        "2048 @ 90%": 50.0,
+        "7168 @ 10%": 80.0,
+        "7168 @ 50%": 80.0,
+        "7168 @ 90%": 80.0
+      },
+      "passkey_sentence_kept": 0.0,
+      "decode_ms_per_token": 70.14623612522927,
+      "kv_mib_measured_at_7k": 140.2388671875,
+      "hotpotqa_f1": 28.86904761904762
+    },
+    {
+      "weights": "GPTQ W4 (static)",
+      "kv_cache": "key norm, 10% kept (per-token)",
+      "weight_gb": 5.733,
+      "passkey_found": 100.0,
+      "passkey_exact_match": 85.0,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 100.0,
+        "2048 @ 50%": 100.0,
+        "2048 @ 90%": 100.0,
+        "7168 @ 10%": 100.0,
+        "7168 @ 50%": 100.0,
+        "7168 @ 90%": 100.0
+      },
+      "passkey_sentence_kept": 93.92156898975372,
+      "decode_ms_per_token": 69.83896443077053,
+      "kv_mib_measured_at_7k": 215.88046875,
+      "hotpotqa_f1": 26.35930735930736
+    },
+    {
+      "weights": "Mixed ref-kl-5.50 (per-layer)",
+      "kv_cache": "full precision",
+      "weight_gb": 5.499,
+      "passkey_found": 100.0,
+      "passkey_exact_match": 51.666666666666664,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 100.0,
+        "2048 @ 50%": 100.0,
+        "2048 @ 90%": 100.0,
+        "7168 @ 10%": 100.0,
+        "7168 @ 50%": 100.0,
+        "7168 @ 90%": 100.0
+      },
+      "passkey_sentence_kept": 100.0,
+      "decode_ms_per_token": 26.44843948125425,
+      "kv_mib_measured_at_7k": 896.8708333333333,
+      "hotpotqa_f1": 39.26647914883209
+    },
+    {
+      "weights": "Mixed ref-kl-5.50 (per-layer)",
+      "kv_cache": "static INT2",
+      "weight_gb": 5.499,
+      "passkey_found": 73.33333333333333,
+      "passkey_exact_match": 36.666666666666664,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 60.0,
+        "2048 @ 50%": 60.0,
+        "2048 @ 90%": 50.0,
+        "7168 @ 10%": 90.0,
+        "7168 @ 50%": 80.0,
+        "7168 @ 90%": 100.0
+      },
+      "passkey_sentence_kept": 0.0,
+      "decode_ms_per_token": 70.19078694654766,
+      "kv_mib_measured_at_7k": 140.3015625,
+      "hotpotqa_f1": 30.333079665432606
+    },
+    {
+      "weights": "Mixed ref-kl-5.50 (per-layer)",
+      "kv_cache": "key norm, 10% kept (per-token)",
+      "weight_gb": 5.499,
+      "passkey_found": 96.66666666666667,
+      "passkey_exact_match": 50.0,
+      "passkey_found_by_cell": {
+        "2048 @ 10%": 100.0,
+        "2048 @ 50%": 100.0,
+        "2048 @ 90%": 100.0,
+        "7168 @ 10%": 90.0,
+        "7168 @ 50%": 90.0,
+        "7168 @ 90%": 100.0
+      },
+      "passkey_sentence_kept": 95.29411792755127,
+      "decode_ms_per_token": 69.0023503806097,
+      "kv_mib_measured_at_7k": 215.9755859375,
+      "hotpotqa_f1": 28.77155348625937
+    }
+  ]
+}
